@@ -1,0 +1,13 @@
+apiVersion: v2
+name: wxd
+description: A Helm chart for deploying WXD (watsonx Data) on Kubernetes
+type: application
+version: 1.0.0
+appVersion: "1.0"
+keywords:
+  - wxd
+  - watsonx
+  - data
+maintainers:
+  - name: Glenio Borges
+    email: glenio.borges@ibm.com

@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "wxd.fullname" . }}
+  labels:
+    {{- include "wxd.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "wxd.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "wxd.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "wxd.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: console
+          containerPort: {{ .Values.service.ports.console.targetPort }}
+          protocol: TCP
+        - name: minio
+          containerPort: {{ .Values.service.ports.minio.targetPort }}
+          protocol: TCP
+        - name: mds
+          containerPort: {{ .Values.service.ports.mds.targetPort }}
+          protocol: TCP
+        env:
+        - name: ADMIN_USER
+          valueFrom:
+            secretKeyRef:
+              name: wxd-secrets
+              key: admin-username
+        - name: ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: wxd-secrets
+              key: admin-password
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+        {{- if .Values.logging.enabled }}
+        volumeMounts:
+        - name: logs
+          mountPath: /var/log/wxd
+        {{- end }}
+      {{- if .Values.logging.enabled }}
+      volumes:
+      - name: logs
+        emptyDir: {}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
