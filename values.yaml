@@ -1,0 +1,438 @@
+# Global settings
+global:
+  namespace: "wxd"  # Will use .Release.Namespace by default
+  postgresql:
+    enabled: true
+    auth:
+      username: dummy_user
+      postgresPassword: dummy
+      password: dummy
+      database: dummy
+    serviceAccount:
+      create: false # Use an existing service account
+      name: "wxd-service-account"  
+    # Pre-install configuration
+    hooks:
+      preInstall: true
+pg-postgres:
+  serviceAccount:
+    name: "wxd-service-account" 
+    create: false
+  image:
+    registry: "icr.io"
+    repository: "wxd_dev_edition/postgres-15"
+    tag: "2.2.2"
+    pullPolicy: IfNotPresent
+pgpostgres:
+  serviceAccount:
+    name: "wxd-service-account" 
+    create: false
+  image:
+    registry: "icr.io"
+    repository: "wxd_dev_edition/postgres-15"
+    tag: "2.2.2"
+    pullPolicy: IfNotPresent
+
+  metrics:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/postgres-exporter
+      tag: latest
+
+  volumePermissions:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/os-shell
+      tag: latest
+  
+# Service account settings
+serviceAccount:
+  wxdNorbacSa:
+    name: "wxd-norbac-sa"
+    kind: "ServiceAccount"
+    imagePullSecrets:
+      - "icr-pull"
+      - "jfrog-pull"
+      - "regcred"
+  wxdServiceAccount:
+    kind: "ServiceAccount"
+    name: "wxd-service-account"
+    imagePullSecrets:
+      - "icr-pull"
+      - "jfrog-pull"
+      - "regcred"
+  
+# Role binding settings
+roleBinding:
+  clusterRoleBinding:
+    name: "default-sa-cluster-admin"
+    roleRef:
+      kind: "ClusterRole"
+      name: "cluster-admin"
+  
+# Image settings
+images:
+  registry: "icr.io/wxd_dev_edition"
+  tag:
+    lhingestionApi: "2.2.2"
+    lhconsoleApi: "2.2.2"
+    lhamsApi: "2.2.2"
+    minio: "2.2.2"
+    consoleUI: "2.2.2"
+    validator: "2.2.2"
+    mdsRest: "2.2.2"
+    mdsThrift: "2.2.2"
+    presto: "2.2.2"
+    cpg: "2.2.2"
+    miniforge: "sha256:bb90b6a82ece8e1beacf9caa4bfffada203a0bfc22f6e3df5530f6e08bfb5720"
+    sparkpython: ":2.2.2"
+    sparkCp: ":2.2.2"
+    sparkDa: ":2.2.2"
+    sparkHelm: ":2.2.2"
+    sparkNginx: ":2.2.2"
+    sparkUi: ":2.2.2"
+    node: ":2.2.2"
+    sparkRsyslog: ":2.2.2"
+    sparkTruststore: ":2.2.2"
+  image:
+    lhingestionApi: "lhingestion-api"
+    lhconsoleApi: "lhconsole-api"
+    lhamsApi: "ibm-lh-ams-cpg"
+    minio: "ibm-lh-minio"
+    consoleUI: "lhconsole-ui"
+    validator: "ibm-lh-validator"
+    mdsRest: "ibm-lh-mds-rest"
+    mdsThrift: "ibm-lh-mds-thrift"
+    presto: "ibm-lh-presto"
+    cpg: "ibm-lh-cpg"
+    miniforge: "spark-hb-wxd-cpd-miniforge-runtimes"
+    sparkpython: "spark-hb-python"
+    sparkCp: "spark-hb-control-plane"
+    sparkDa: "spark-hb-deployer-agent"
+    sparkHelm: "spark-hb-helm-repo"
+    sparkNginx: "spark-hb-nginx"
+    sparkUi: "spark-hb-ui"
+    node: "lhconsole-nodeclient"
+    sparkRsyslog: "spark-hb-rsyslog-sidecar"
+    sparkTruststore: "spark-hb-truststore-util"
+  pullPolicy: "IfNotPresent"
+
+# Service settings
+service:
+  minio:
+    name: "ibm-lh-minio-svc"
+    port: 9000
+    uiport: 9001
+    type: "ClusterIP"
+  validatorSvc:
+    name: "ibm-lh-validator-svc"
+    port: 8443
+    type: "ClusterIP"
+  validator:
+    name: "ibm-lh-validator"
+    port: 8443
+    type: "ClusterIP"
+    restport: 8481
+  mdsRest:
+    name: "ibm-lh-mds-rest-svc"
+    port: 8180
+    type: "ClusterIP"
+  mdsThrift:
+    name: "ibm-lh-mds-thrift-svc"
+    port: 8381
+    type: "ClusterIP"
+    thriftport: 8380
+  presto:
+    name: "ibm-lh-presto-svc"
+    port: 8443
+    type: "ClusterIP"
+    restport: 8481
+  cpg:
+    name: "ibm-lh-cpg-svc"
+    port: 8680
+    type: "ClusterIP"
+  consoleUi:
+    name: "lhconsole-ui-svc"
+    port: 443
+    type: "ClusterIP"
+  consoleAms:
+    name: "lhconsole-ams-svc"
+    port: 3333
+    type: "ClusterIP"
+  consoleApi:
+    name: "lhconsole-api-svc"
+    port: 3333
+    type: "ClusterIP"
+  
+# Deployment settings
+deployment:
+  replicas:
+    lhingestionApi: 1
+    lhconsoleApi: 1
+    lhamsApi: 1
+    minio: 1
+    consoleUI: 1
+    validator: 1
+    mdsRest: 1
+    mdsThrift: 1
+    presto: 1
+    cpg: 0
+  resources:
+    lhingestionApi: {}
+    lhconsoleApi: {}
+    lhamsApi: {}
+    minio: {}
+    consoleUI: {}
+    validator: {}
+    mdsRest: {}
+    mdsThrift: {}
+    presto: {}
+    cpg: {}
+  strategy:
+    type: "RollingUpdate"
+    rollingUpdate:
+      maxSurge: "25%"
+      maxUnavailable: "25%"
+
+# Configuration settings
+config:
+  # Config map settings
+    wxdLaunchCm:
+      AMS_URL: "https://lhconsole-ams-svc:3333"
+      CM_PATH: "/lhconfig/cluster-configmap.json"
+      CONSOLE_API_URL: "https://lhconsole-api-svc:3333"
+      COORDINATOR_HOST: "ibm-lh-presto-svc"
+      COORDINATOR_PORT: "8443"
+      CPG_URL: "https://ibm-lh-cpg-svc:8680"
+      DEMO_MODE: "false"
+      GROUP: "presto-01"
+      HMS_CONNECTIONPOOL_MAXPOOLSIZE: "10"
+      HMS_THRIFT_URL: "thrift://ibm-lh-mds-thrift-svc:8380"
+      HMS_URL: "https://ibm-lh-mds-rest-svc:8180"
+      INGESTION_SVC_URI: "https://lhingestion-api-svc:7898"
+      INSTANCE_ID: "0000-0000-0000-0000"
+      JAVA_SVC_URI: "http://lhconsole-javaapi-svc:8667"
+      LAKEHOUSE_LOGFILEPATH: "/tmp/"
+      LH_AUTH_USERNAME: "ibmlhadmin"
+      LH_CONSOLE_API_URL: "https://lhconsole-api-svc:3333"
+      LH_CONTEXT: "sw_dev"
+      LH_DEFAULT_BUCKET_LIST: "iceberg-bucket,hive-bucket"
+      LH_DEFAULT_CATALOG_LIST: "iceberg_data,hive_data"
+      LH_DEV_HTPASSWD_FILE: "/mnt/infra/lhauth/users.htpasswd"
+      LH_DEV_ROLES_FILE: "/mnt/infra/lhauth/roles.htpasswd"
+      LH_ENV: "LOCAL"
+      LH_HIVE_BUCKET: "hive-bucket"
+      LH_HIVE_CATALOG: "hive_data"
+      LH_HMS_PORT: "9083"
+      LH_INSTANCE_ID: "0000-0000-0000-0000"
+      LH_INSTANCE_NAME: "lh-default"
+      LH_METASTORE_DB: "ibm_lh_repo"
+      LH_MILVUS_BUCKET: "wxd-milvus"
+      LH_PLUGINS_BUCKET_LOCATION: "plugins"
+      LH_PRESTISSIMO: "false"
+      LH_QHMM_BUCKET_LOCATION: "qhmm"
+      LH_S3_BUCKET: "iceberg-bucket"
+      LH_S3_CATALOG: "iceberg_data"
+      LH_S3_REGION: "us-east-1"
+      LH_S3_URL: "http://ibm-lh-minio-svc:9000"
+      LH_SA: "false"
+      LH_SERVER_PRIVATE_KEY: "/opt/presto/etc/cert/private.pem"
+      LH_SERVER_PUBLIC_KEY: "/opt/presto/etc/cert/public.pem"
+      LH_SYSTEM_BUCKET: "wxd-system"
+      LH_SYSTEM_CATALOG: "wxd_system_data"
+      LH_WKC: "false"
+      MDS_DB_CONNECTION_MAX_POOL_SIZE: "10"
+      MDS_REST_URL: "https://ibm-lh-mds-rest-svc:8180"
+      MDS_THRIFT_URL: "thrift://ibm-lh-mds-thrift-svc:8380"
+      MILVUS_ETCD_ENDPOINT: "ibm-lh-etcd-svc:2379"
+      MILVUS_PRIVILEGES_PATH: "/lhconfig/milvus-privileges.json"
+      NODE_SVC_URI: "https://lhconsole-nodeclient-svc:3001"
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"
+      PGCLIENTENCODING: "UTF8"
+      POLICYMGR_EXTERNAL_URL: "https://localhost:8380"
+      POLICYMGR_HTTPS_KEYSTORE_FILE: "/ranger/config/ranger-admin-keystore.jks"
+      POLICYMGR_HTTPS_KEYSTORE_KEYALIAS: "rangeradmin"
+      POLICYMGR_HTTPS_KEYSTORE_PASSWORD: "IBMLakeHouse"
+      POSTGRES_HOST: "ibm-lh-postgres-svc:5432"
+      PRESTO_HISTORY_FILE: "/tmp/.presto_history"
+      PRESTO_SERVER: "ibm-lh-presto-svc:8443"
+      PRISMO: "prestissimo-01"
+      PUBLIC_CERT_URL: "https://lhconsole-ams-svc:3333/lakehouse/api/v2/auth/jwt_public"
+      RANGER_ADMIN_PASSWORD: "IBMLakeHouse123"
+      RANGER_CONNECTION_URI: "https://ibm-lh-ranger:8380"
+      RANGER_KEYADMIN_PASSWORD: "IBMLakeHouse123"
+      RANGER_PLUGIN_ENABLED: "false"
+      RANGER_POLICY_STORED: "false"
+      RANGER_SSL_CERT_PATH: "/ranger/config/"
+      RANGER_TAGSYNC_PASSWORD: "IBMLakeHouse123"
+      RANGER_USERSYNC_PASSWORD: "IBMLakeHouse123"
+      REQUESTS_CA_BUNDLE: "/mnt/infra/tls/pki/tls-ca-bundle.pem"
+      SSL_CERT_FILE: "/mnt/infra/tls/pki/tls-ca-bundle.pem"
+      SSL_CRT: "/mnt/infra/tls/tls.crt"
+      SSL_CUSTOM_CRT: "/mnt/infra/tls/tls.crt"
+      SSL_CUSTOM_KEY: "/mnt/infra/tls/tls.key"
+      SSL_EXTERNAL_CRT: "/mnt/infra/external-tls/tls.crt"
+      SSL_EXTERNAL_KEY: "/mnt/infra/external-tls/tls.key"
+      SSL_KEY: "/mnt/infra/tls/tls.key"
+      SSL_KS_FILE: "/mnt/infra/tls/lh-ssl-ks.jks"
+      SSL_TS_FILE: "/mnt/infra/tls/truststore.jks"
+      SSLTMPDIR: "/mnt/infra/tls"
+      TRUST_STORE_PATH: "/mnt/infra/tls/lh-ssl-ts.jks"
+      SERVICE_APIKEY_USERNAME: "ibmlhapikey_wxd_svc"
+      SERVICE_TOKEN_USERNAME: "ibmlhtoken_wxd_svc"
+      enableAuth: "true"
+      enableMDS: "true"
+      ENABLE_MULTI_CATALOG_THREE_PART_NAME: "true"
+    spark:
+      nginxConfigmap:
+        name: "spark-hb-nginx-configmap"
+    catalogs:
+      name: "ibm-lh-catalogs"
+      jmxProperties: "connector.name=jmx"
+      tpcdsProperties: |-
+        connector.name=tpch
+        tpch.column-naming=standard
+    milvusPrivileges:
+      name: "milvus-privileges-config"    
+
+# Security settings
+security:
+  secrets:
+    internalTls:
+      name: "internal-tls"
+    configSecret:
+      name: "ibm-lh-config-secret"
+      data:
+        KEY_ALIAS: "ibm-lh-client"
+        LH_INSTANCE_SECRET: "dummyvalue"
+        LH_INTERNAL_SECRET: "dummyvalue"
+        LH_KEYSTORE_PASSWORD: "changeit"
+        LH_S3_ACCESS_KEY: "dummyvalue"
+        LH_S3_SECRET_KEY: "dummyvalue"
+        LH_TRUSTSTORE_PASSWORD: "changeit"
+        envProperties: |
+          LH_KEYSTORE_PASSWORD="changeit"
+          LH_TRUSTSTORE_PASSWORD="changeit"
+          LH_S3_ACCESS_KEY="dummyvalue"
+          LH_S3_SECRET_KEY="dummyvalue"
+          LH_AUTH_PASSWORD="dummyvalue"
+          LH_INSTANCE_SECRET="dummyvalue"
+          LH_INTERNAL_SECRET="dummyvalue"
+          SSL_KEYSTORE_PASSWORD="changeit"
+          SSL_TRUSTSTORE_PASSWORD="changeit"
+          KEY_ALIAS="ibm-lh-client"
+          ENABLE_MULTI_CATALOG_THREE_PART_NAME=true
+    lhauthSecretRole:
+      name: "lhauth-secret-role"
+      data: |
+        Admin: ibmlhadmin
+        User:
+    lhauthSecret:
+      name: "lhauth-secret"
+      data: |
+        ibmlhadmin:pbkdf2_sha256$260000$d0e4c42be9ace20293113819c4f47ed0$dDcGoqdnKMxpYaVVpoMNwHUVuny5xLRJVq1KFaa+qXA=
+    spark:
+      cloudNativePostgresqlApp:
+        name: "spark-hb-cloud-native-postgresql-app"
+        data:
+          dbname: "dummy"
+          host: "wxd-pg-postgres"
+          jdbcUri: "jdbc:postgresql://wxd-pg-postgres:5432/dummy?user=dummy_user6password=dummy&currentschema=cpd&sslmode=disable"
+          password: "dummy"
+          pgpass: "wxd-pg-postgres:5432:dummy:dummy_user:dummy"
+          port: "5432"
+          uri: "postgresql://dummy_user:dummy@wxd-pg-postgres:5432/dummy?currentschema=cpd&sslmode=disable"
+          user: "dummy_user"
+          username: "dummy_user"
+        type: "kubernetes.io/basic-auth"
+      confidentialProperties:
+        name: "spark-hb-confidential-properties"
+        data:
+          confidentialProperties: |
+            # IBM Confidential
+            # OCO Source Materials
+            # 5737-H76, 5900-A16, 5900-A1J
+            # ©Copyright IBM Corp. 2020, 2024  All Rights Reserved.
+            # The source code for this program is not published or otherwise divested of its trade secrets, irrespective of what has been deposited with the U.S. Copyright Office.
+            KEY_TO_GENERATE_SERVICE_TOKEN=iam_dummy_token
+            dataplane_apikey=iam_dummy_token
+            dbUrl=postgresql://dummy_user:dummy@wxd-pg-postgres:5432/dummy?currentschema=cpd&sslmode=disable
+        type: "Opaque"
+      wdpServiceId:
+        name: "wdp-service-id"
+        data:
+          serviceId: "icp4d-dev"
+          serviceIdCredentials: "aWNwNGQtZGV2OmR1bW15b25l"
+        type: "Opaque"
+      zenServiceBrokerSecret:
+        name: "zen-service-broker-secret"
+        data:
+          token: "m6vnvopsLxt5128yjsdbxbs2993gsv20"
+        type: "Opaque"
+
+# Job settings
+jobs:
+  controlPlanePrereq:
+    name: "ibm-lh-control-plane-prereq"
+    image: "icr.io/wxd_dev_edition"
+    tag: "2.2.2"
+    backoffLimit: 6
+    completions: 1
+    parallelism: 1
+    resources: {}
+    lhingestionApi: {}
+    lhconsoleApi: {}
+    lhamsApi: {}
+  sparkLoadPostgresDbSpecs:
+    name: "spark-hb-load-postgres-db-specs"
+    image: "icr.io/wxd_dev_edition/spark-hb-python:2.2.2"
+    imagePullPolicy: "IfNotPresent"
+    backoffLimit: 6
+    completions: 1
+    parallelism: 1
+    resources: {}
+    scriptVolume:
+      name: "script-volume"
+      configMapName: "spark-hb-load-postgres-db-specs-script"
+    dbUrlVolume:
+      name: "db-url-volume"
+      secretName: "spark-hb-cloud-native-postgresql-app"
+
+# Volume mount paths
+volumeMounts:
+  internalTls: "/mnt/infra/internal-tls"
+  tls: "/mnt/infra/tls"
+  configSecret: "/mnt/infra/ibm-lh-secrets"
+
+# Security context settings
+securityContext:
+  # Set to true for OpenShift compatibility, false for standard Kubernetes/Minikube
+  enableOpenShiftSettings: true
+
+# Certificate generator settings
+certGenerator:
+  imagePullSecrets:
+    - docker-pull-secret
+# Docker pull secrets
+imagePullSecrets:
+  dockerPullSecret:
+    name: docker-pull-secret
+    create: true
+    # Set useExisting to true if the secret already exists and you want to use it
+    useExisting: false
+    username: roneymathew
+    password: dummy_password
+  icrPull:
+    name: icr-pull
+    create: true
+    # Set useExisting to true if the secret already exists and you want to use it
+    useExisting: false
+    registry: icr.io
+    username: cp
+    password: dummy_password
+pvc:
+  # storageClassName: wxd-storage-class
+  storageClassName: standard
+
+# Made with Bob
+platform: "amd64"
