@@ -1,0 +1,783 @@
+apiVersion: v1
+data:
+  create_tables.sql: |-
+    CREATE TABLE IF NOT EXISTS DB_VERSION (version BIGINT PRIMARY KEY NOT NULL);
+
+    CREATE TABLE  IF NOT EXISTS SERVICE_PROVIDER  (id TEXT PRIMARY KEY NOT NULL, instance_id TEXT NOT NULL, api_key TEXT, state TEXT, metadata jsonb, parameters jsonb,
+    serviceInstanceDescription TEXT, serviceInstanceDisplayName TEXT, serviceInstanceNamespace TEXT, transientFields jsonb, zenServiceInstanceInfo jsonb, space_id TEXT, job_def_id TEXT, creation_date TEXT, updation_date TEXT, document_type TEXT, CUSTOMISATION_DEPLOYMENT_REQUEST_ID VARCHAR(256));
+
+    CREATE TABLE  IF NOT EXISTS HB_USERS  (id SERIAL PRIMARY KEY NOT NULL, uid TEXT NOT
+    NULL, sID TEXT NOT NULL, role TEXT, username TEXT, password TEXT, state TEXT,
+    creation_date TEXT, updation_date TEXT);
+
+    CREATE TABLE  IF NOT EXISTS INSTANCE_MANAGER (
+        id SERIAL NOT NULL,
+        instance_id TEXT PRIMARY KEY NOT NULL,
+        home_volume jsonb,
+        api_key TEXT,
+        state TEXT,
+        account_id TEXT,
+        project_id TEXT,
+        creation_date TEXT,
+        updation_date TEXT,
+        document_type TEXT,
+        namespace TEXT,
+        deployment_request_id TEXT,
+        dataplane_url TEXT,
+        cpu_quota BIGINT,
+        memory_quota TEXT,
+        avail_cpu_quota BIGINT,
+        avail_memory_quota TEXT,
+        context_type TEXT,
+        context_id TEXT,
+        job_def_id VARCHAR (512),
+        spark_confs jsonb);
+
+    CREATE TABLE IF NOT
+    EXISTS dataplane_manager (id TEXT PRIMARY KEY NOT NULL, external_dataplane_url
+    TEXT, internal_dataplane_url TEXT, state TEXT, creation_date TIMESTAMP, updation_date
+    TIMESTAMP, document_type TEXT, msg TEXT, tag TEXT, name TEXT, project_id TEXT,
+    nfs jsonb, available_pod_resources jsonb, additional_details jsonb);
+
+    CREATE TABLE IF NOT EXISTS DEPLOY(id VARCHAR(50) PRIMARY KEY NOT NULL, deployer_url
+    VARCHAR(256), image_list VARCHAR(1024), namespace VARCHAR(256), create_time
+    TIMESTAMPTZ, delete_time TIMESTAMPTZ);
+
+    CREATE TABLE  IF NOT EXISTS JOB  (
+        id SERIAL NOT NULL,
+        job_id TEXT PRIMARY KEY NOT NULL,
+        instance_id TEXT NOT NULL,
+        version TEXT,
+        eng jsonb,
+        app_args jsonb,
+        app_resource TEXT,
+        main_class TEXT,
+        dataplane_uri TEXT,
+        external_dataplane_uri TEXT,
+        nfs_home_volume jsonb,
+        driver_id TEXT,
+        environment TEXT,
+        job_state TEXT,
+        start_time TIMESTAMP,
+        finish_time TIMESTAMP,
+        killed_time TIMESTAMP,
+        failed_time TIMESTAMP,
+        environment_name TEXT,
+        runtime_registration_params jsonb,
+        register_job_enabled BOOLEAN,
+        return_code TEXT,
+        mode TEXT,
+        user_log_dir TEXT,
+        document_type TEXT,
+        state TEXT,
+        creation_date TIMESTAMP,
+        updation_date TIMESTAMP,
+        deployment_request_id TEXT,
+        project_id TEXT,
+        pvc_name TEXT,
+        spark_app_id TEXT,
+        user_name TEXT,
+        resources_updated BOOLEAN,
+        context_type TEXT,
+        context_id TEXT,
+        job_def_id TEXT,
+        job_run_id TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS job_id_index ON job (job_id);
+    CREATE INDEX IF NOT EXISTS job_state_index ON job (job_state);
+    CREATE INDEX IF NOT EXISTS job_instance_id_index ON job (instance_id);
+
+    CREATE TABLE  IF NOT EXISTS
+    KERNEL (id SERIAL NOT NULL, kernel_id TEXT PRIMARY KEY NOT NULL, instance_id
+    TEXT NOT NULL, name TEXT, external_dataplane_uri TEXT, usr_lib_cos jsonb, eng
+    jsonb, jkg_size jsonb, register_kernel_enabled BOOLEAN, env jsonb, nfs_home_volume
+    jsonb, environment TEXT, environment_name TEXT, runtime_registration_params
+    jsonb, log_config TEXT, decommission_time TIMESTAMP, commission_time TIMESTAMP,
+    deletion_time TIMESTAMP, deployment_time TIMESTAMP, document_type TEXT, state
+    TEXT, creation_date TIMESTAMP, updation_date TIMESTAMP, cleanup_deployment_request_id
+    TEXT, deployment_request_id  TEXT, requested_conf TEXT, auto_termination_time
+    TIMESTAMP, status VARCHAR (10), instance_defaults_at_submission TEXT, user_info
+    VARCHAR(128), additional_attributes TEXT);
+
+    CREATE INDEX IF NOT EXISTS kernel_instance_id_index ON kernel (instance_id);
+    CREATE INDEX IF NOT EXISTS kernel_state_index ON kernel (state);
+
+    CREATE TABLE IF NOT EXISTS INSTANCE(
+         id VARCHAR(36) PRIMARY KEY NOT NULL,
+         home_volume VARCHAR (256),
+         template_id VARCHAR (256),
+         configs TEXT,
+         cpu_quota BIGINT,
+         memory_quota BIGINT,
+         avail_cpu_quota BIGINT,
+         avail_memory_quota BIGINT,
+         state VARCHAR (32),
+         creation_time TIMESTAMPTZ,
+         state_change_time TIMESTAMPTZ,
+         namespace VARCHAR (253),
+         history_server_deployment_request_id VARCHAR (128),
+         context_type VARCHAR (32),
+         context_id VARCHAR (512),
+         account_id VARCHAR(32),
+         job_def_id VARCHAR (512),
+         dataplane_type VARCHAR (512),
+         dataplane_name VARCHAR(32),
+         dataplane_url VARCHAR (512),
+         dataplane_details TEXT,
+         endpoint_type VARCHAR (32),
+         type VARCHAR(16),
+         api_key VARCHAR(36),
+         reserved_capacity_exists BOOLEAN,
+         resource_quota_deployment_id VARCHAR(128),
+         quota_version BIGINT,
+         immutable_configs TEXT,
+         mutable_env_vars TEXT,
+         immutable_env_vars TEXT,
+         CONSTRAINT context_constraint UNIQUE (context_id, context_type)
+     );
+
+    CREATE INDEX IF NOT EXISTS instance_id_index ON instance (id);
+    CREATE INDEX IF NOT EXISTS instance_state_index ON instance (state);
+
+    CREATE TABLE IF NOT EXISTS VOLUME_MOUNT (
+         id VARCHAR (36)
+    PRIMARY KEY NOT NULL,
+        instance_id VARCHAR (36) REFERENCES INSTANCE (id),
+        name VARCHAR (256),
+        source_sub_path VARCHAR (512),
+        mount_path VARCHAR (512)
+    );
+
+    CREATE TABLE IF NOT EXISTS VOLUME_DEFINITION (
+        instance_id VARCHAR(36) REFERENCES INSTANCE (id),
+        name VARCHAR (256),
+        provider VARCHAR(64),
+        type VARCHAR(64),
+        details TEXT,
+        path_prefix VARCHAR(64),
+        PRIMARY KEY(instance_id, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS APPLICATION (
+       type VARCHAR(32),
+       application_id VARCHAR(36) PRIMARY KEY NOT NULL,
+       instance_id VARCHAR(36),
+       application_details TEXT,
+       environment VARCHAR(64),
+       state VARCHAR(36),
+       start_time TIMESTAMPTZ,
+       finish_time TIMESTAMPTZ,
+       failed_time TIMESTAMPTZ,
+       additional_attributes TEXT,
+       return_code VARCHAR(36),
+       mode VARCHAR(36),
+       log_config TEXT,
+       creation_time TIMESTAMPTZ,
+       auto_termination_time TIMESTAMPTZ,
+       instance_defaults_at_submission TEXT,
+       name VARCHAR(32),
+       context_type VARCHAR (32),
+       context_id VARCHAR (512),
+       idempotency_key VARCHAR (64),
+       CONSTRAINT idempotency_key_constraint UNIQUE(idempotency_key)
+    );
+
+    CREATE INDEX IF NOT EXISTS application_instance_id_index ON application (instance_id);
+    CREATE INDEX IF NOT EXISTS application_id_index ON application (application_id);
+ 
+    CREATE TABLE IF NOT EXISTS APPLICATION_VOLUME_MAP (
+       application_id VARCHAR(36),
+       instance_id VARCHAR(36),
+       name VARCHAR(256),
+       source_sub_path VARCHAR(512),
+       mount_path VARCHAR(512),
+       read_only BOOLEAN,
+       mode VARCHAR(36)
+    );
+
+
+    CREATE TABLE IF NOT EXISTS RUNTIME (
+       application_id VARCHAR(36),
+       template_id VARCHAR(128),
+       master_memory BIGINT,
+       master_cores BIGINT,
+       worker_memory BIGINT,
+       worker_cores BIGINT,
+       num_workers_running BIGINT,
+       num_workers_requested BIGINT,
+       creation_time TIMESTAMPTZ,
+       state_change_time TIMESTAMPTZ,
+       updation_time TIMESTAMPTZ,
+       state VARCHAR(36),
+       type VARCHAR(36),
+       deployment_request_id VARCHAR(36),
+       dataplane_uri VARCHAR(256),
+       external_dataplane_uri VARCHAR(256),
+       release_version VARCHAR(128)
+    );
+
+    CREATE INDEX IF NOT EXISTS runtime_application_id_index ON runtime (application_id);
+    CREATE INDEX IF NOT EXISTS runtime_state_index ON runtime (state);
+ 
+    CREATE TABLE IF NOT EXISTS APPLICATION_REQUEST_RESPONSE_TRACKER (
+       application_id VARCHAR(36),
+       instance_id VARCHAR(36),
+       request_type VARCHAR(36),
+       requested_time TIMESTAMPTZ,
+       response_code BIGINT,
+       response_message VARCHAR(128)
+    );
+ 
+    CREATE TABLE IF NOT EXISTS SPARK_HISTORY_SERVER (
+       id VARCHAR(36) PRIMARY KEY NOT NULL,
+       instance_id VARCHAR(36) REFERENCES INSTANCE (id),
+       template_id VARCHAR (256),
+       cpu VARCHAR(10),
+       memory VARCHAR(10),
+       state VARCHAR (32),
+       start_time TIMESTAMPTZ,
+       stop_time TIMESTAMPTZ,
+       state_change_time TIMESTAMPTZ,
+       deployment_request_id VARCHAR(36),
+       dataplane_url VARCHAR(256),
+       auto_termination_time TIMESTAMPTZ,
+       creation_time TIMESTAMPTZ,
+       release_version VARCHAR(128)
+    );
+   
+    CREATE TABLE IF NOT EXISTS RESOURCE_USAGE (
+       id SERIAL NOT NULL,
+       instance_id VARCHAR(36) REFERENCES INSTANCE (id),
+       runtime_id VARCHAR(36) PRIMARY KEY NOT NULL,
+       state VARCHAR(36),
+       requested_time TIMESTAMP,
+       state_change_time TIMESTAMP,
+       availed_cpu BIGINT,
+       availed_memory BIGINT);
+  load-db-specs.sh: |-
+    #!/bin/bash
+
+    script_path=/opt/ibm/entrypoint
+    db_url_path=/opt/hb/confidential_config/pgpass
+    version=41
+    schema=cpd
+
+    exec_cmd()
+    {
+        CMD=$1
+        eval $CMD
+        if [ $? -ne 0 ]
+        then
+            echo "Error : failed to execute the command: $CMD"
+            exit 1
+        fi
+    }
+
+
+    #------------------------------------
+    # Configure postgres DB
+    #------------------------------------
+    DB_URL=$(cat "$db_url_path")
+    echo "connecting to postgres db $DB_URL"
+    echo "Invoking script load_db.py"
+    python $script_path/load_db.py $DB_URL $script_path/create_tables.sql $version $schema
+    if [[ $? = 0 ]]; then
+        echo "Executed script load_db.py"
+    else
+        echo "Error executing load_db.py script : $?"
+        exit 1
+    fi
+
+    #------------------------------------
+    # Migrating V2 records to V4
+    #------------------------------------
+    echo "Invoking script v2_migration.py"
+    python $script_path/v2_migration.py $DB_URL $script_path/v2_migration_script.sql $schema
+    if [[ $? = 0 ]]; then
+        echo "Executed script v2_migration.py"
+    else
+        echo "Error executing load_db.py script : $?"
+        exit 1
+    fi
+  load_db.py: |-
+    import psycopg2
+    from psycopg2 import Error
+    import sys
+
+    def closeConnection(cursor, connection):
+        cursor.close()
+        connection.commit()
+        connection.close()
+        print("Postgres DB connection is closed")
+
+    def upgrade_sql(version):
+        switcher={
+            0: '',
+            1: 'ALTER TABLE INSTANCE_MANAGER ADD COLUMN IF NOT EXISTS  cpu_quota BIGINT, ADD COLUMN IF NOT EXIST memory_quota TEXT, ADD COLUMN IF NOT EXIST avail_cpu_quota BIGINT, ADD COLUMN IF NOT EXIST avail_memory_quota TEXT; ALTER TABLE JOB ADD COLUMN IF NOT EXIST resources_updated BOOLEAN;',
+            2: 'ALTER TABLE INSTANCE_MANAGER ADD COLUMN IF NOT EXIST context_type TEXT, ADD COLUMN IF NOT EXIST context_id TEXT, ADD COLUMN IF NOT EXIST spark_confs jsonb;',
+            3: 'ALTER TABLE DATAPLANE_MANAGER ADD COLUMN IF NOT EXIST additional_details jsonb;',
+            4: 'ALTER TABLE IF EXISTS DEPLOY_REQUEST ADD COLUMN IF NOT EXIST runtime_id TEXT;',
+            5: 'ALTER TABLE IF EXISTS DEPLOYMENT ADD COLUMN IF NOT EXIST deployer_type TEXT; ALTER TABLE INSTANCE_MANAGER ADD COLUMN IF NOT EXIST job_def_id VARCHAR (512); ALTER TABLE JOB ADD COLUMN IF NOT EXIST context_type TEXT, ADD COLUMN IF NOT EXIST context_id TEXT, ADD COLUMN IF NOT EXIST job_def_id TEXT, ADD COLUMN IF NOT EXIST job_run_id TEXT; ALTER TABLE SERVICE_PROVIDER ADD COLUMN IF NOT EXIST space_id TEXT, ADD COLUMN IF NOT EXIST job_def_id TEXT;',
+            6: 'ALTER TABLE SERVICE_PROVIDER ADD COLUMN IF NOT EXISTS CUSTOMISATION_DEPLOYMENT_REQUEST_ID VARCHAR(256);',
+            7: 'ALTER TABLE application ADD COLUMN IF NOT EXISTS log_config TEXT;',
+            8: 'ALTER TABLE KERNEL ADD COLUMN IF NOT EXISTS log_config TEXT, ADD COLUMN IF NOT EXISTS requested_conf TEXT; ALTER TABLE application ADD COLUMN IF NOT EXISTS creation_time TIMESTAMPTZ;',
+            9: 'ALTER TABLE application ADD COLUMN IF NOT EXISTS auto_termination_time TIMESTAMPTZ;',
+            10: 'ALTER TABLE KERNEL ADD COLUMN IF NOT EXISTS auto_termination_time TIMESTAMP;',
+            11: 'ALTER TABLE spark_history_server ADD COLUMN IF NOT EXISTS auto_termination_time TIMESTAMPTZ;',
+            12: 'ALTER TABLE application ADD COLUMN IF NOT EXISTS state_change_time TIMESTAMPTZ;',
+            13: 'ALTER TABLE instance ADD COLUMN IF NOT EXISTS endpoint_type VARCHAR (32); ALTER TABLE kernel ADD COLUMN IF NOT EXISTS status VARCHAR (10);',
+            14: 'ALTER TABLE instance ADD COLUMN IF NOT EXISTS account_id VARCHAR(32), ADD COLUMN IF NOT EXISTS api_key VARCHAR(36); ALTER TABLE application ALTER COLUMN environment TYPE VARCHAR(64);',
+            15: 'ALTER TABLE instance ADD COLUMN IF NOT EXISTS resource_quota_deployment_id VARCHAR(128), ADD COLUMN IF NOT EXISTS quota_version BIGINT;',
+            16: 'CREATE UNIQUE INDEX IF NOT EXISTS context_constraint ON instance(context_id, context_type);',
+            17: 'ALTER TABLE application ADD COLUMN IF NOT EXISTS instance_defaults_at_submission TEXT; ALTER TABLE kernel ADD COLUMN IF NOT EXISTS instance_defaults_at_submission TEXT;',
+            18: "UPDATE instance SET context_type = 'space_instance' WHERE context_type = 'space' AND job_def_id IS NOT NULL;",
+            19: "UPDATE instance SET context_type = 'space_instance' WHERE context_type = 'space' AND context_id IS NULL AND job_def_id IS NULL;",
+            20: "ALTER TABLE runtime ADD COLUMN IF NOT EXISTS type VARCHAR(36);",
+            21: "ALTER TABLE application_volume_map ADD COLUMN IF NOT EXISTS read_only BOOLEAN;",
+            22: "ALTER TABLE application_volume_map ADD COLUMN IF NOT EXISTS read_only BOOLEAN;",
+            23: "ALTER TABLE instance ADD COLUMN IF NOT EXISTS reserved_capacity_exists BOOLEAN,ADD COLUMN IF NOT EXISTS dataplane_name VARCHAR(32);",
+            24: "ALTER TABLE volume_definition ADD COLUMN IF NOT EXISTS path_prefix VARCHAR(64);",
+            25: "ALTER TABLE instance ALTER COLUMN namespace TYPE varchar(253);",
+            26: "ALTER TABLE spark_history_server ADD COLUMN IF NOT EXISTS creation_time TIMESTAMPTZ;",
+            27: "UPDATE spark_history_server SET creation_time = start_time WHERE state= 'started' AND creation_time IS NULL;",
+            28: "ALTER TABLE instance ADD COLUMN IF NOT EXISTS immutable_configs TEXT;",
+            29: "ALTER TABLE application ADD COLUMN IF NOT EXISTS name varchar(32);",
+            30: "UPDATE instance set template_id='spark-3.4-cp4d-wxd-template' where template_id='spark-3.4-cp4d-template' and context_type='watsonx_data'; UPDATE instance set template_id='spark-3.3-cp4d-wxd-template' where template_id='spark-3.3-cp4d-template' and context_type='watsonx_data';",
+            31: "ALTER TABLE instance ADD COLUMN IF NOT EXISTS immutable_env_vars TEXT, ADD COLUMN IF NOT EXISTS mutable_env_vars TEXT, ADD COLUMN IF NOT EXISTS dataplane_details TEXT;",
+            32: "ALTER TABLE runtime ADD COLUMN IF NOT EXISTS release_version VARCHAR(128);",
+            33: "ALTER TABLE instance ADD COLUMN IF NOT EXISTS type VARCHAR(16);",
+            34: "UPDATE instance SET template_id='gluten-3.4-cp4d-wxd-template', type='gluten' WHERE template_id='spark-3.4-cp4d-gluten-wxd-template';",
+            35: "UPDATE runtime SET template_id='gluten-3.4-cp4d-wxd-template' WHERE template_id='spark-3.4-cp4d-gluten-wxd-template';",
+            36: "ALTER TABLE kernel ADD COLUMN IF NOT EXISTS user_info varchar(128);",
+            37: "ALTER TABLE kernel ADD COLUMN IF NOT EXISTS additional_attributes TEXT;",
+            38: "ALTER TABLE runtime ADD COLUMN IF NOT EXISTS release_version VARCHAR(128);",
+            39: "ALTER TABLE spark_history_server ADD COLUMN IF NOT EXISTS release_version VARCHAR(128);",
+            40: "ALTER TABLE application ADD COLUMN IF NOT EXISTS context_id VARCHAR (512); ALTER TABLE application ADD COLUMN IF NOT EXISTS context_type VARCHAR (32);",
+            41: "ALTER TABLE application ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR (64); ALTER TABLE application ADD CONSTRAINT idempotency_key_constraint UNIQUE(idempotency_key);"
+        }
+        return switcher.get(version)
+    
+    def create_schema_if_not_exists(dbUrl, dbSchema):
+        dbHost, dbPort, dbName, dbUser, dbPassword = db_url.split(":")
+        try:
+            # Connect to an existing database
+            connection = psycopg2.connect(user=dbUser,
+                                        password=dbPassword,
+                                        host=dbHost,
+                                        port=dbPort,
+                                        database=dbName,
+                                          
+                                        sslmode='disable')
+            connection.autocommit = True
+            print_db_connection_status(connection)
+
+            cur = connection.cursor()
+            sql="CREATE SCHEMA IF NOT EXISTS %s AUTHORIZATION %s" % (dbSchema, dbUser)
+            #sql="CREATE SCHEMA %s" % (dbSchema)
+            cur.execute(sql)
+            print (" sql execution completed")
+        except psycopg2.errors.DuplicateSchema:
+            print("Schema {schema} already exists.")
+        except (Exception, Error) as error:
+            print("Error while connecting to PostgreSQL", error)
+
+    def print_db_connection_status(connection):
+        # Create a cursor to perform database operations
+        cursor = connection.cursor()
+        # Executing a SQL query
+        cursor.execute("SELECT version();")
+        # Fetch result
+        record = cursor.fetchone()
+        print("You are connected to - ", record, "\n")
+        cursor.close()
+
+    def connect_to_db(dbUrl, dbSchema):
+        dbHost, dbPort, dbName, dbUser, dbPassword = db_url.split(":")
+        searchpath="-c search_path=%s" % (dbSchema)
+        try:
+            connection = psycopg2.connect(user=dbUser,
+                                        password=dbPassword,
+                                        host=dbHost,
+                                        port=dbPort,
+                                        database=dbName,
+                                           
+                                        sslmode='disable',
+                                        options=searchpath)
+            print_db_connection_status(connection)
+            cursor = connection.cursor()
+            return connection, cursor
+        except (Exception, Error) as error:
+            print("Error while connecting to PostgreSQL", error)
+
+    def checkIfUpgrade(dbUrl, version, dbSchema):
+        print("checkIfUpgrade: Entry")
+        try:
+            connection, cursor = connect_to_db(dbUrl, dbSchema)
+            sql="SELECT table_name FROM information_schema.tables WHERE table_schema='%s';" % (dbSchema)
+            cursor.execute(sql)
+            row_count = cursor.rowcount
+            row = cursor.fetchall()
+            if row_count != 0 and ("db_version",) not in row:
+                print("db_version table not present")
+                current_version=0
+            elif row_count != 0 and ("db_version",) in row:
+                print("db_version table present")
+                cursor.execute("SELECT * from DB_VERSION")
+                current_version=cursor.fetchone()[0]
+            else:
+                current_version=version
+        except (Exception, psycopg2.Error) as error :
+            print ("Error while connecting to Postgres DB", error)
+            raise Exception('Error executing sql')
+            exit(1)
+        finally:
+            if(connection):
+                closeConnection(cursor, connection)
+            return current_version
+
+    def load_db(dbUrl, sql_file, dbSchema):
+        print("load_db: Entry")
+        try:
+            print ("About to make a connection")
+            connection, cursor = connect_to_db(dbUrl,dbSchema)
+            print ("Postgres DB connection obtained")
+            #with open(sql_file, 'r') as f:
+            #    sql = f.read()
+            #    cursor.execute(sql)
+            cursor.execute(open(sql_file, "r").read())
+            print (" sql execution completed")
+        except (Exception, psycopg2.Error) as error :
+            print ("Error while connecting to Postgres DB", error)
+            raise Exception('Error executing sql')
+            exit(1)
+        finally:
+            if(connection):
+                closeConnection(cursor, connection)
+
+
+    def upgrade(dbUrl,current_version, version, dbSchema):
+        print("upgrade: Entry")
+        try:
+            print ("About to make a connection")
+            connection, cursor = connect_to_db(dbUrl,dbSchema)
+            print ("Postgres metastore connection obtained")
+            cursor.execute("SELECT * from DB_VERSION")
+            row_count = cursor.rowcount
+            if row_count == 0:
+                print("Version table is empty")
+                sql="INSERT into DB_VERSION VALUES(%d)" % (current_version)
+                cursor.execute(sql)
+                print (" sql execution completed")
+            else:
+                print("Version table not empty, take current version from table.")
+                current_version=cursor.fetchone()[0]
+                print(current_version)
+
+            closeConnection(cursor, connection)
+
+            connection, cursor = connect_to_db(dbUrl,dbSchema)
+            print ("postgres metastore connection obtained")
+            print (" current db version %s , latest version %s" % (current_version, version))
+
+            if current_version<version:
+                print("upgrade here")
+                for x in range(current_version+1, version+1):
+                    query = upgrade_sql(x)
+                    print(query)
+                    cursor.execute(query)
+                sql="UPDATE DB_VERSION SET version=(%d)" % (version)
+                cursor.execute(sql)
+            else:
+                print("do not upgrade")
+        except (Exception, psycopg2.Error) as error :
+            print ("Error while connecting to Postgres DB", error)
+            raise Exception('Error executing sql')
+            exit(1)
+        finally:
+            if(connection):
+                closeConnection(cursor, connection)
+
+
+    def cleanup_db(dbUrl,current_version, version, dbSchema):
+        print("cleanup_db: Entry")
+        try:
+            print ("About to make a connection")
+            connection, cursor = connect_to_db(dbUrl,dbSchema)
+            print ("Postgres metastore connection obtained")
+            cursor.execute("select exists(select * from information_schema.tables where table_name='deployment')")
+            if cursor.fetchone()[0] == True:
+                print("Deleting all records deployment table")
+                sql = "DELETE FROM deployment"
+                print("All records from deployment table deleted")
+                cursor.execute(sql)
+            else:
+                print("deployment table does not exists")
+
+            cursor.execute("select exists(select * from information_schema.tables where table_name='deploy_request')")
+            if cursor.fetchone()[0] == True:
+                sql = """DELETE FROM deploy_request dr1 WHERE
+                    dr1.id IN (SELECT dr.id FROM deploy_request dr INNER JOIN kernel k ON k.deployment_request_id=dr.id and k.state not in ('Initiated', 'Preparing', 'Deploying', 'Active', 'ToDelete', 'Deleting', 'DeleteFailed', 'Culling', 'CulledFailed', 'ToAutoTerminate', 'AutoTerminating', 'AutoTerminationFailed'))
+                    OR dr1.id IN (SELECT dr.id FROM deploy_request dr INNER JOIN runtime r ON r.deployment_request_id=dr.id and r.state not in ('INITIATED', 'PREPARING', 'DEPLOYING', 'ACTIVE', 'FAILED'))
+                    OR dr1.id IN (SELECT dr.id FROM deploy_request dr INNER JOIN spark_history_server shs ON shs.deployment_request_id=dr.id and shs.state not in ('starting', 'started', 'start_failed', 'stopping', 'stop_failed', 'auto_terminating', 'auto_terminate_failed', 'ops_terminating'))
+                    OR dr1.id IN (SELECT dr.id FROM deploy_request dr INNER JOIN instance i ON i.resource_quota_deployment_id=dr.id and UPPER(i.state) in ('DELETED', 'FAILED'))
+                    OR dr1.id IN (SELECT dr.id FROM deploy_request dr INNER JOIN service_provider sp ON sp.CUSTOMISATION_DEPLOYMENT_REQUEST_ID=dr.id and UPPER(sp.state) in ('DELETED', 'FAILED'));"""
+                print("Deleting data from deploy_request table")
+                cursor.execute(sql)
+                print("Data from deploy_request table deleted")
+                row_count = cursor.rowcount
+                print(str(row_count) + " rows deleted from deploy_request table")
+            else:
+                print("deploy_request table does not exists")
+        except (Exception, psycopg2.Error) as error :
+            print ("Error while connecting to Postgres DB", error)
+            raise Exception('Error executing sql')
+            exit(1)
+        finally:
+            if(connection):
+                closeConnection(cursor, connection)
+
+
+    if __name__ == "__main__":
+        if len (sys.argv) < 5 :
+            print("Error : missing one or more arguments")
+            print("Usage : python {0} <db_url> <sql_filename> <db_version> <schema> ".format(sys.argv[0]))
+            exit(1)
+        else:
+            db_url = sys.argv[1]
+            sql_file = sys.argv[2]
+            version = int(sys.argv[3])
+            schema = sys.argv[4]
+        try:
+            create_schema_if_not_exists(db_url, schema)
+            current_version=checkIfUpgrade(db_url,version, schema)
+            load_db(db_url, sql_file, schema)
+            upgrade(db_url, current_version, version, schema )
+            cleanup_db(db_url, current_version, version, schema)
+        except Exception as err:
+            sys.stderr.write('ERROR: %sn' % str(err))
+            exit(1)
+  v2_migration.py: |-
+    """V2 Migration script for 4.7.0 and newer
+
+    As part of migration of V1/2 instances to V3/4 and V1/2 jobs to
+    V3/4 applications, this upgrade script runs sql file to migrate
+    all records from instance_manager to instance & volume_definition
+    table and job to application & runtime table.
+
+    Usage:
+        python3 v2_migration_script.py <db_url> <migration_sql_file.sql> <schema> <crt_file> <certificate_key>
+    """
+
+    import psycopg2
+    import sys
+
+    def connect_to_db(dbUrl, dbSchema):
+        dbHost, dbPort, dbName, dbUser, dbPassword = db_url.split(":")
+        searchpath="-c search_path=%s" % (dbSchema)
+        try:
+            connection = psycopg2.connect(user=dbUser,
+                                        password=dbPassword,
+                                        host=dbHost,
+                                        port=dbPort,
+                                        database=dbName,
+                                        sslmode='disable',
+                                        options=searchpath)
+            cursor = connection.cursor()
+            return connection, cursor
+        except (Exception, Error) as error:
+            print("Error while connecting to PostgreSQL", error)
+
+    # Closes db connection
+    def closeConnection(cursor, connection):
+        cursor.close()
+        connection.commit()
+        connection.close()
+        print("Postgres DB connection is closed")
+
+    # Migration is not required if
+    # instance_manager and job table is not available
+    def checkIfMigrationReq(dbUrl, dbSchema):
+        print("Checking if migration is required")
+        try:
+            connection, cursor = connect_to_db(dbUrl, dbSchema)
+            sql="SELECT table_name FROM information_schema.tables WHERE table_schema='%s';" % (dbSchema)
+            cursor.execute(sql)
+            row = cursor.fetchall()
+            
+            if ('instance_manager',) not in row or ('job',) not in row:
+                print("instance_manager or job table not present")
+                print("Migration is not needed here")
+                return False;
+        except (Exception, psycopg2.Error) as error :
+            print ("Error while connecting to Postgres DB", error)
+            raise Exception('Error executing sql')
+            exit(1)
+        finally:
+            if(connection):
+                closeConnection(cursor, connection)
+            
+        return True
+
+
+    # Migration function
+    def migrate(dbUrl, sql_file, dbSchema):
+        print("Starting migration")
+        try:
+            connection, cursor = connect_to_db(dbUrl, dbSchema)
+            
+            print("Running migration SQL script")
+            cursor.execute(open(sql_file, "r").read())
+            
+        except (Exception, psycopg2.Error) as error :
+            print ("Error while connecting to Postgres DB or migrating records", error)
+            raise Exception('Error executing sql')
+            exit(1)
+        finally:
+            if(connection):
+                closeConnection(cursor, connection)
+
+
+    if __name__ == "__main__":
+        if len (sys.argv) < 4 :
+            print("Error : missing one or more arguments")
+            print("Usage : python {0} <db_url> <sql_file> <schema> <crt_file> <certificate_key>".format(sys.argv[0]))
+            exit(1)
+        else:
+            db_url = sys.argv[1]
+            sql_file = sys.argv[2]
+            schema = sys.argv[3]
+        try:
+            if checkIfMigrationReq(db_url, schema):
+                migrate(db_url, sql_file, schema)
+            
+            exit(0)
+        except Exception as err:
+            sys.stderr.write('ERROR: %sn' % str(err))
+            exit(1)
+  v2_migration_script.sql: |-
+    CREATE OR REPLACE FUNCTION getMemoryInGB (memstring text)
+    RETURNS int
+    LANGUAGE plpgsql
+    AS
+    $$
+    DECLARE
+        memRegex text = '(\d+)([bkmgtp]|kb|mb|gb|tb|pb|Mi|Gi)';
+        result INT;
+        u text;
+        matches text[];
+    BEGIN
+        IF memstring IS NULL THEN RETURN NULL; END IF;
+        matches := (regexp_matches(memstring, memRegex, 'i'));
+        result := CAST(coalesce(matches[1],
+        '0') AS integer);
+        u := matches[2];
+        
+        IF result = 0 THEN RETURN NULL; END IF;
+        IF u IS NULl THEN RETURN NULL; END IF;
+
+        CASE
+            WHEN u = 'b' THEN result := result/(1024 * 1024 * 1024);
+            WHEN u = 'k' OR u = 'kb' OR u = 'K' THEN result := result/(1024 * 1024);
+            WHEN u = 'm' OR u = 'mb' OR u = 'Mi' OR u = 'M' THEN result := result/1024;
+            WHEN u = 't' OR u = 'gb' OR u = 'tb' OR u = 'T' THEN result := result*1024;
+            WHEN u = 'p' OR u = 'pb' OR u = 'P' THEN result := result*1024*1024;
+            ELSE return result;
+        END CASE;
+            
+        return result;
+    END;
+    $$;
+
+    INSERT INTO
+        instance (id, home_volume, api_key, state, account_id, context_id, creation_time, state_change_time, namespace, history_server_deployment_request_id, cpu_quota, avail_cpu_quota, memory_quota, avail_memory_quota, context_type, job_def_id, configs)
+    SELECT instance_id,
+        CASE
+             WHEN home_volume IS NOT NULL THEN
+                CASE WHEN home_volume->>'name' IS NOT NULL
+                THEN home_volume->>'name' ELSE 'ae-v2-home-vol' END
+             ELSE NULL
+         END,
+        api_key, state, account_id,
+        CASE
+            WHEN project_id IS NOT NULL THEN project_id
+            ELSE context_id
+        END,
+        creation_date::timestamptz,
+        updation_date::timestamptz,
+        namespace, deployment_request_id, cpu_quota, avail_cpu_quota,
+        getMemoryInGb(memory_quota),
+        getMemoryInGb(avail_memory_quota),
+        CASE
+            WHEN project_id IS NOT NULL THEN
+                'project'
+            ELSE
+                CASE
+                    WHEN context_type = 'spaces' THEN 'space'
+                    WHEN context_type = 'projects' THEN 'project'
+                    WHEN context_type = 'git_projects' THEN 'git_project'
+                    ELSE context_type
+                END
+        END,
+        job_def_id,
+        spark_confs #>> '{}'
+    FROM instance_manager im_v2
+    WHERE im_v2.state = 'Created'
+    ORDER BY im_v2.creation_date DESC
+    ON CONFLICT DO NOTHING;
+
+    INSERT INTO
+        application (type, application_id, instance_id, application_details, additional_attributes, environment, state, start_time, finish_time, failed_time, return_code, mode, creation_time)
+    SELECT
+        'spark', job_id, instance_id,
+        json_build_object(
+            'application', app_resource,
+            'class', main_class,
+            'conf', eng->'conf'
+        ),
+        json_build_object(
+            'v2_migrated_job', 'true',
+            'runtime_registration_params', runtime_registration_params,
+            'context_type',
+                (CASE
+                    WHEN project_id IS NOT NULL THEN
+                        'project'
+                    ELSE
+                        CASE
+                            WHEN context_type = 'spaces' THEN 'space'
+                            WHEN context_type = 'projects' THEN 'project'
+                            WHEN context_type = 'git_projects' THEN 'git_project'
+                            ELSE context_type
+                        END
+                END)
+            ,
+            'context_id',
+                (CASE
+                    WHEN project_id IS NOT NULL THEN project_id
+                    ELSE context_id
+                END),
+            'job_def_id', job_def_id
+        ),
+        environment, job_state, start_time, finish_time, failed_time, return_code, mode, creation_date
+    FROM job
+    ON CONFLICT DO NOTHING;
+
+    INSERT INTO
+        runtime (application_id, template_id, master_cores, master_memory, worker_cores, worker_memory, num_workers_requested, creation_time, state_change_time, updation_time, state, deployment_request_id)
+    SELECT
+        job_id, eng->>'template_id',
+        CAST(coalesce(eng->'size'->'driver_size'->>'cpu', '0') AS INTEGER),
+        getMemoryInGb(eng->'size'->'driver_size'->>'memory'),
+        CAST(coalesce(eng->'size'->'worker_size'->>'cpu', '0') AS INTEGER),
+        getMemoryInGb(eng->'size'->'worker_size'->>'memory'),
+        CAST(coalesce(eng->'size'->>'num_workers') AS integer),
+        creation_date, updation_date, updation_date, state, deployment_request_id
+    FROM job
+    ON CONFLICT DO NOTHING;
+kind: ConfigMap
+metadata:
+  name: spark-hb-load-postgres-db-specs-script
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "1"

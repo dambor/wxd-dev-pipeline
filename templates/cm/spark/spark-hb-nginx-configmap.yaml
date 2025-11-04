@@ -1,0 +1,285 @@
+apiVersion: v1
+data:
+  nginx.conf: "daemon off;\nerror_log  /dev/stderr;\nworker_processes 5;\nevents
+    { worker_connections  1024; }\n\nhttp {\n    # This map is used to determine
+    whether line should be logged or not, based on request uri\n    # At the moment,
+    it is configured to NOT log /nginx_status request.\n    map $uri $loggable {\n
+    \       ~/nginx_status 0;\n        default 1;\n    }\n\n    log_format apm '\"$time_local\"
+    client=$remote_addr '\n                     'remote_addr=$remote_addr'\n                     'remote_user=$remote_user'\n
+    \                    'method=$request_method'\n                     'request=\"$request\"
+    '\n                     'request_length=$request_length '\n                     'status=$status'\n
+    \                    'bytes_sent=$bytes_sent '\n                     'body_bytes_sent=$body_bytes_sent
+    '\n                     'referer=$http_referer '\n                     'user_agent=\"$http_user_agent\"
+    '\n                     'upstream_addr=$upstream_addr '\n                     'upstream_status=$upstream_status
+    '\n                     'request_time=$request_time '\n                     'upstream_response_time=$upstream_response_time
+    '\n                     'upstream_connect_time=$upstream_connect_time '\n                     'upstream_header_time=$upstream_header_time';\n\n
+    \   access_log /dev/stdout apm if=$loggable;\n\n    sendfile                on;\n
+    \   tcp_nopush              on;\n    tcp_nodelay             on;\n    client_header_timeout
+    \  2m;\n    client_body_timeout     2m;\n    proxy_connect_timeout   600;\n
+    \   proxy_send_timeout      600;\n    proxy_read_timeout      600;\n    send_timeout
+    \           600;\n\n\n    server {\n        listen 9999 ssl;\n        resolver
+    NGINX_RESOLVER valid=1s;\n\n        server_name localhost;\n\n        ssl_certificate
+    /etc/nginx/config/ssl/cert.crt;\n        ssl_certificate_key /etc/nginx/config/ssl/cert.key;\n\n
+    \       ssl_protocols TLSv1.3;\n        ssl_prefer_server_ciphers on;\n        ssl_ciphers
+    'EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA:!3DES';\n
+    \       ssl_ecdh_curve secp384r1;\n        ssl_session_cache shared:SSL:10m;\n
+    \       ssl_session_tickets off;\n\n        proxy_intercept_errors on;\n        large_client_header_buffers
+    4 16k;\n\n        set $ns_domain NS_DOMAIN;\n        set $controller_ns_domain
+    {{ .Release.Namespace }}.svc.cluster.local;\n        set $dataplane_ns_domain {{ .Release.Namespace }}.svc.cluster.local;\n
+    \       location /nginx_status {\n            stub_status  on;\n            access_log
+    \  off;\n            allow 10.0.0.0/8;\n            deny  all;\n        }\n
+    \       location = /internal {\n            internal;\n            proxy_pass
+    \             https://spark-hb-control-plane:443/access/v1/apikey/authorize_dataplane;\n
+    \           proxy_set_header X-Forwarded-User $http_authorization;\n            proxy_set_header
+    Authorization $http_authorization;\n            proxy_set_header        Content-Length
+    \"\";\n            proxy_set_header X-Original-Request $request;\n            proxy_http_version
+    1.1;\n        }\n        location ~ /(.*)/ssl/jkg/(.*)$ {\n            #auth_request
+    \    /internal;\n            #auth_request_set $auth_status $upstream_status;\n
+    \           set $serv  https://jkg-headless-$1.$ns_domain:8888/$2;\n            proxy_pass
+    \ $serv;\n            proxy_set_header X-Real-IP $remote_addr;\n            proxy_set_header
+    Host $host;\n            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n
+    \           proxy_set_header X-NginX-Proxy true;\n\n            # WebSocket
+    support\n            proxy_http_version 1.1;\n            proxy_set_header Upgrade
+    $http_upgrade;\n            proxy_set_header Connection \"upgrade\";\n            proxy_read_timeout
+    86400;\n        }\n        location ~ /(.*)/jkg/(.*)$ {\n            #auth_request
+    \    /internal;\n            #auth_request_set $auth_status $upstream_status;\n
+    \           set $serv  http://jkg-headless-$1.$ns_domain:8888/$2;\n            proxy_pass
+    \ $serv;\n            proxy_set_header X-Real-IP $remote_addr;\n            proxy_set_header
+    Host $host;\n            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n
+    \           proxy_set_header X-NginX-Proxy true;\n\n            # WebSocket
+    support\n            proxy_http_version 1.1;\n            proxy_set_header Upgrade
+    $http_upgrade;\n            proxy_set_header Connection \"upgrade\";\n            proxy_read_timeout
+    86400;\n        }\n        location ~ /(.*)/ssl/clusters/(.*)$ {\n            set
+    $serv  https://spark-master-headless-$1.$ns_domain:6066/$2;\n            proxy_pass
+    \ $serv;\n            proxy_set_header X-Real-IP $remote_addr;\n            proxy_set_header
+    Host $host;\n            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n
+    \           proxy_set_header X-NginX-Proxy true;\n\n            # WebSocket
+    support\n            proxy_http_version 1.1;\n            proxy_set_header Upgrade
+    $http_upgrade;\n            proxy_set_header Connection \"upgrade\";\n            proxy_read_timeout
+    86400;\n        }\n        location ~ /(.*)/clusters/(.*)$ {\n            set
+    $serv  http://spark-master-headless-$1.$ns_domain:6066/$2;\n            proxy_pass
+    \ $serv;\n            proxy_set_header X-Real-IP $remote_addr;\n            proxy_set_header
+    Host $host;\n            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n
+    \           proxy_set_header X-NginX-Proxy true;\n\n            # WebSocket
+    support\n            proxy_http_version 1.1;\n            proxy_set_header Upgrade
+    $http_upgrade;\n            proxy_set_header Connection \"upgrade\";\n            proxy_read_timeout
+    86400;\n        }\n        location ~ /(.*)/v1/jobs/(.*)$ {\n            #auth_request
+    \    /internal;\n            #auth_request_set $auth_status $upstream_status;\n
+    \           set $serv  http://spark-master-headless-$1.$ns_domain:6066/v1/submissions/$2;\n
+    \           proxy_pass  $serv;\n            proxy_set_header X-Real-IP $remote_addr;\n
+    \           proxy_set_header Host $host;\n            proxy_set_header X-Forwarded-For
+    $proxy_add_x_forwarded_for;\n            proxy_set_header X-NginX-Proxy true;\n
+    \       }\n        location ~ /(.*)/v2/ssl/jobs/(.*)$ {\n            #auth_request
+    \    /internal;\n            #auth_request_set $auth_status $upstream_status;\n
+    \           set $serv  https://spark-master-headless-$1.$ns_domain:8480/$2/;\n
+    \           proxy_pass  $serv;\n            proxy_set_header X-Real-IP $remote_addr;\n
+    \           proxy_set_header Host $host;\n            proxy_set_header X-Forwarded-For
+    $proxy_add_x_forwarded_for;\n            proxy_set_header X-NginX-Proxy true;\n
+    \       }\n        location ~ /(.*)/v2/jobs/(.*)$ {\n            #auth_request
+    \    /internal;\n            #auth_request_set $auth_status $upstream_status;\n
+    \           set $serv  http://spark-master-headless-$1.$ns_domain:8080/$2/;\n
+    \           proxy_pass  $serv;\n            proxy_set_header X-Real-IP $remote_addr;\n
+    \           proxy_set_header Host $host;\n            proxy_set_header X-Forwarded-For
+    $proxy_add_x_forwarded_for;\n            proxy_set_header X-NginX-Proxy true;\n
+    \       }\n        location ~ /helmDeployer/(.*)$ {\n            #auth_request
+    \    /internal;\n            #auth_request_set $auth_status $upstream_status;\n
+    \           set $serv  https://spark-hb-control-plane:443/helmDeployer/$1;\n
+    \           proxy_pass  $serv;\n            proxy_set_header X-Real-IP $remote_addr;\n
+    \           proxy_set_header Host $host;\n            proxy_set_header X-Forwarded-For
+    $proxy_add_x_forwarded_for;\n            proxy_set_header X-NginX-Proxy true;\n
+    \       }\n        location ~ /helm-deployer/(.*)$ {\n            #auth_request
+    \    /internal;\n            #auth_request_set $auth_status $upstream_status;\n
+    \           set $serv  https://spark-hb-deployer-agent.$controller_ns_domain:443/helm-deployer/$1;\n
+    \           proxy_pass  $serv$is_args$args;\n            proxy_set_header X-Real-IP
+    $remote_addr;\n            proxy_set_header Host $host;\n            proxy_set_header
+    X-Forwarded-For $proxy_add_x_forwarded_for;\n            proxy_set_header X-NginX-Proxy
+    true;\n        }\n\n        \n        location ~ /kubeproxy/(.*)$ {\n            #auth_request
+    \    /internal;\n            #auth_request_set $auth_status $upstream_status;\n
+    \           set $serv  https://spark-hb-deployer-agent.$controller_ns_domain:443/kubeproxy/$1;\n
+    \           proxy_pass  $serv$is_args$args;\n            proxy_set_header X-Real-IP
+    $remote_addr;\n            proxy_set_header Host $host;\n            proxy_set_header
+    X-Forwarded-For $proxy_add_x_forwarded_for;\n            proxy_set_header X-NginX-Proxy
+    true;\n        } \n\n        location ~ /(.*)/ssl/sparkui/(.*)$ {\n        \tset
+    $job_id $1;\n        \tset $serv https://sparkui-${job_id}.$dataplane_ns_domain:4440/$2$is_args$args;\n
+    \       \tproxy_pass $serv;\n        \tproxy_set_header Accept-Encoding \"\";\n
+    \       \t\n        \tproxy_intercept_errors on;\n        \terror_page 301 302
+    307 = @handlesparkssluiredirects;\n        \t\n        \tsub_filter_types *;\n
+    \       \tsub_filter_once off;\n        \tsub_filter_last_modified on;\n        \t\n
+    \       \tsub_filter 'href=\"/' 'href=\"/$job_id/ssl/sparkui/';\n        \tsub_filter
+    'src=\"/' 'src=\"/$job_id/ssl/sparkui/';\n        \tsub_filter '/api' '/$job_id/ssl/sparkui/api';\n
+    \       \tsub_filter '/static' '/$job_id/ssl/sparkui/static';\n            sub_filter
+    '/stages/stage' '/$job_id/ssl/sparkui/stages/stage';\n            sub_filter
+    '/jobs/job' '/$job_id/ssl/sparkui/jobs/job';\n        }\n        location ~
+    /(.*)/sparkui/(.*)$ {\n        \tset $job_id $1;\n        \tset $serv http://sparkui-${job_id}.$dataplane_ns_domain:4040/$2$is_args$args;\n
+    \       \tproxy_pass $serv;\n        \tproxy_set_header Accept-Encoding \"\";\n
+    \       \tproxy_intercept_errors on;\n        \terror_page 301 302 307 = @handlesparkuiredirects;\n
+    \       \t\n        \tsub_filter_types *;\n        \tsub_filter_once off;\n
+    \       \tsub_filter_last_modified on;\n        \t\n        \tsub_filter 'href=\"/'
+    'href=\"/$job_id/sparkui/';\n        \tsub_filter 'src=\"/' 'src=\"/$job_id/sparkui/';\n
+    \       \tsub_filter '/api' '/$job_id/sparkui/api';\n        \tsub_filter '/static'
+    '/$job_id/sparkui/static';\n            sub_filter '/stages/stage' '/$job_id/sparkui/stages/stage';\n
+    \           sub_filter '/jobs/job' '/$job_id/sparkui/jobs/job';\n        }\n
+    \       location @handlesparkssluiredirects {\n        \tproxy_set_header X-Real-IP
+    $remote_addr;\n        \tproxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n
+    \       \tproxy_set_header Accept-Encoding \"\";\n        \tproxy_pass_header
+    Content-Type;\n        \t\n        \tset $saved_redirect_location '$upstream_http_location';\n
+    \       \tproxy_pass $saved_redirect_location;\n        \t\n        \tsub_filter_types
+    *;\n        \tsub_filter_once off;\n        \tsub_filter_last_modified on;\n
+    \       \t\n        \tsub_filter 'href=\"/' 'href=\"/$job_id/ssl/sparkui/';\n
+    \       \tsub_filter 'src=\"/' 'src=\"/$job_id/ssl/sparkui/';\n        \tsub_filter
+    '/api' '/$job_id/ssl/sparkui/api';\n        \tsub_filter '/static' '/$job_id/ssl/sparkui/static';\n
+    \           sub_filter '/stages/stage' '/$job_id/ssl/sparkui/stages/stage';\n
+    \           sub_filter '/jobs/job' '/$job_id/ssl/sparkui/jobs/job';\n        }\n
+    \       location @handlesparkuiredirects {\n        \tproxy_set_header X-Real-IP
+    $remote_addr;\n        \tproxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n
+    \       \tproxy_set_header Accept-Encoding \"\";\n        \tproxy_pass_header
+    Content-Type;\n        \t\n        \tset $saved_redirect_location '$upstream_http_location';\n
+    \       \tproxy_pass $saved_redirect_location;\n        \t\n        \tsub_filter_types
+    *;\n        \tsub_filter_once off;\n        \tsub_filter_last_modified on;\n
+    \       \t\n        \tsub_filter 'href=\"/' 'href=\"/$job_id/sparkui/';\n        \tsub_filter
+    'src=\"/' 'src=\"/$job_id/sparkui/';\n        \tsub_filter '/api' '/$job_id/sparkui/api';\n
+    \       \tsub_filter '/static' '/$job_id/sparkui/static';\n            sub_filter
+    '/stages/stage' '/$job_id/sparkui/stages/stage';\n            sub_filter '/jobs/job'
+    '/$job_id/sparkui/jobs/job';\n        }\n        location ~ /(.*)/ssl/historyui(.*)$
+    {\n            location ~ /(.*)/ssl/historyui(.*)/taskTable$ {\n              proxy_pass
+    \  https://spark-history-headless-$1.$ns_domain:18480$2/taskTable$is_args$args;\n
+    \             set $instance_id  $1;\n              proxy_set_header Accept-Encoding
+    \"\";\n              sub_filter \"/history/\" \"/$1/ssl/historyui/history/\";\n
+    \             sub_filter \"/proxy/\" \"/$1/ssl/historyui/proxy/\";\n              sub_filter_once
+    off;\n              error_page 301 302 303 = @historyhandler;\n\n            }\n
+    \           proxy_pass   https://spark-history-headless-$1.$ns_domain:18480$2;\n
+    \           set $instance_id  $1;\n            proxy_set_header Accept-Encoding
+    \"\";\n            sub_filter '\"/static/' '\"/$1/ssl/historyui/static/';\n
+    \           sub_filter \"/history/\" \"/$1/ssl/historyui/history/\";\n            sub_filter
+    \"/proxy/\" \"/$1/ssl/historyui/proxy/\";\n            sub_filter 'href=\"/?showIncomplete'
+    'href=\"/$1/ssl/historyui/?showIncomplete';\n            sub_filter \"/stages/stage/\"
+    \"/stages/stage\";\n            sub_filter \"/jobs/job/\" \"/jobs/job\";\n            sub_filter
+    'getJSON(uiRoot + \"/api' 'getJSON(uiRoot + \"/$1/ssl/historyui/api';\n            sub_filter
+    'attempt[\"log\"] = uiRoot + \"/api' 'attempt[\"log\"] = uiRoot + \"/$1/ssl/historyui/api';\n
+    \           sub_filter 'href=\"/' 'href=\"/$1/ssl/historyui/';\n            sub_filter_types
+    application/javascript;\n            sub_filter 'return \"/log\"' 'return \"/$1/ssl/historyui/log\"';\n
+    \           sub_filter_once off;\n            error_page 301 302 303 = @historyhandlerssl;\n
+    \       }\n        location ~ /(.*)/historyui(.*)$ {\n            location ~
+    /(.*)/historyui(.*)/taskTable$ {\n              proxy_pass   http://spark-history-headless-$1.$ns_domain:18080$2/taskTable$is_args$args;\n
+    \             set $instance_id  $1;\n              proxy_set_header Accept-Encoding
+    \"\";\n              sub_filter \"/history/\" \"/$1/historyui/history/\";\n
+    \             sub_filter \"/proxy/\" \"/$1/historyui/proxy/\";\n              sub_filter_once
+    off;\n              error_page 301 302 303 = @historyhandler;\n\n            }\n
+    \           proxy_pass   http://spark-history-headless-$1.$ns_domain:18080$2;\n
+    \           set $instance_id  $1;\n            proxy_set_header Accept-Encoding
+    \"\";\n            sub_filter '\"/static/' '\"/$1/historyui/static/';\n            sub_filter
+    \"/history/\" \"/$1/historyui/history/\";\n            sub_filter \"/proxy/\"
+    \"/$1/historyui/proxy/\";\n            sub_filter 'href=\"/?showIncomplete'
+    'href=\"/$1/historyui/?showIncomplete';\n            sub_filter \"/stages/stage/\"
+    \"/stages/stage\";\n            sub_filter \"/jobs/job/\" \"/jobs/job\";\n            sub_filter
+    'getJSON(uiRoot + \"/api' 'getJSON(uiRoot + \"/$1/historyui/api';\n            sub_filter
+    'attempt[\"log\"] = uiRoot + \"/api' 'attempt[\"log\"] = uiRoot + \"/$1/historyui/api';\n
+    \           sub_filter 'href=\"/' 'href=\"/$1/historyui/';\n            sub_filter_types
+    application/javascript;\n            sub_filter 'return \"/log\"' 'return \"/$1/historyui/log\"';\n
+    \           sub_filter_once off;\n            error_page 301 302 303 = @historyhandler;\n
+    \       }\n        location @historyhandlerssl {\n            proxy_set_header
+    Host $host;\n            proxy_set_header X-Real-IP $remote_addr;\n            proxy_set_header
+    X-Forwarded-For $proxy_add_x_forwarded_for;\n            proxy_set_header Accept-Encoding
+    \"\";\n            set $original_uri $uri;\n            set $orig_loc $upstream_http_location/;\n
+    \           #return 200 \"$original_uri $uri   loc $orig_loc $upstream_http_location
+    \    $is_args    $args\";\n            proxy_pass $orig_loc$is_args$args;\n
+    \           sub_filter '\"/static/' '\"/$1/ssl/historyui/static/';\n            sub_filter
+    \"/jobs/job/\" \"/jobs/job\";\n            sub_filter \"/stages/stage/\" \"/stages/stage\";\n
+    \           sub_filter \"/history/\" \"/$1/ssl/historyui/history/\";\n            sub_filter
+    \"/proxy/\" \"/$1/ssl/historyui/proxy/\";\n            sub_filter 'href=\"/?showIncomplete'
+    'href=\"/$1/ssl/historyui/?showIncomplete';\n            sub_filter 'href=\"/'
+    'href=\"/$1/ssl/historyui/';\n            sub_filter_types application/javascript;\n
+    \           sub_filter 'return \"/log\"' 'return \"/$1/ssl/historyui/log\"';\n
+    \           proxy_redirect ~^(https://[^/]+)/history(/.+)$ /$instance_id/ssl/historyui/history$2;\n
+    \           sub_filter_once off;\n        }\n        location @historyhandler
+    {\n            proxy_set_header Host $host;\n            proxy_set_header X-Real-IP
+    $remote_addr;\n            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n
+    \           proxy_set_header Accept-Encoding \"\";\n            set $original_uri
+    $uri;\n            set $orig_loc $upstream_http_location/;\n            #return
+    200 \"$original_uri $uri   loc $orig_loc $upstream_http_location     $is_args
+    \   $args\";\n            proxy_pass $orig_loc$is_args$args;\n            sub_filter
+    '\"/static/' '\"/$1/historyui/static/';\n            sub_filter \"/jobs/job/\"
+    \"/jobs/job\";\n            sub_filter \"/stages/stage/\" \"/stages/stage\";\n
+    \           sub_filter \"/history/\" \"/$1/historyui/history/\";\n            sub_filter
+    \"/proxy/\" \"/$1/historyui/proxy/\";\n            sub_filter 'href=\"/?showIncomplete'
+    'href=\"/$1/historyui/?showIncomplete';\n            sub_filter 'href=\"/' 'href=\"/$1/historyui/';\n
+    \           sub_filter_types application/javascript;\n            sub_filter
+    'return \"/log\"' 'return \"/$1/historyui/log\"';\n            proxy_redirect
+    ~^(http://[^/]+)/history(/.+)$ /$instance_id/historyui/history$2;\n            sub_filter_once
+    off;\n        }\n        location @sparkhistoryhandlerssl {\n            proxy_set_header
+    Host $host;\n            proxy_set_header X-Real-IP $remote_addr;\n            proxy_set_header
+    X-Forwarded-For $proxy_add_x_forwarded_for;\n            proxy_set_header Accept-Encoding
+    \"\";\n            set $original_uri $uri;\n            set $orig_loc $upstream_http_location/;\n
+    \           #return 200 \"$original_uri $uri   loc $orig_loc $upstream_http_location
+    \    $is_args    $args\";\n            proxy_pass $orig_loc$is_args$args;\n
+    \           sub_filter '\"/static/' '\"/$1/spark_history_ui/static/';\n            sub_filter
+    \"/jobs/job/\" \"/jobs/job/\";\n            sub_filter \"/stages/stage/\" \"/stages/stage/\";\n
+    \           sub_filter \"/history/\" \"/$1/spark_history_ui/history/\";\n            sub_filter
+    \"/proxy/\" \"/$1/spark_history_ui/proxy/\";\n            sub_filter 'href=\"/?showIncomplete'
+    'href=\"/$1/spark_history_ui/?showIncomplete';\n            sub_filter 'href=\"/'
+    'href=\"/$1/spark_history_ui/';\n            sub_filter_types application/javascript;\n
+    \           sub_filter 'return \"/log\"' 'return \"/$1/spark_history_ui/log\"';\n
+    \           proxy_redirect ~^(http://[^/]+)/history(/.+)$ /$instance_id/spark_history_ui/history$2;\n
+    \           sub_filter_once off;\n        }\n        location ~ /ssl/(.*)/spark_history_ui(.*)$
+    {\n            location ~ /ssl/(.*)/spark_history_ui(.*)/taskTable$ {\n              set
+    $instance_id  $1;\n              proxy_pass   https://spark-history-headless-$instance_id.$ns_domain:18480$2/taskTable$is_args$args;\n
+    \             proxy_set_header Accept-Encoding \"\";\n              sub_filter
+    \"/history/\" \"/$instance_id/spark_history_ui/history/\";\n              sub_filter
+    \"/proxy/\" \"/$instance_id/spark_history_ui/proxy/\";\n              sub_filter_once
+    off;\n              error_page 301 302 303 = @sparkhistoryhandlerssl;\n            }\n
+    \           proxy_pass   https://spark-history-headless-$instance_id.$ns_domain:18480$2$is_args$args;\n
+    \           set $instance_id  $1;\n            proxy_set_header Accept-Encoding
+    \"\";\n            sub_filter '\"/static/' '\"/$instance_id/spark_history_ui/static/';\n
+    \           sub_filter \"/history/\" \"/$instance_id/spark_history_ui/history/\";\n
+    \           sub_filter \"/proxy/\" \"/$instance_id/spark_history_ui/proxy/\";\n
+    \           sub_filter 'href=\"/?showIncomplete' 'href=\"/$instance_id/spark_history_ui/?showIncomplete';\n
+    \           sub_filter \"/stages/stage/\" \"/stages/stage/\";\n            sub_filter
+    \"/jobs/job/\" \"/jobs/job/\";\n            sub_filter 'getJSON(uiRoot + \"/api'
+    'getJSON(uiRoot + \"/$instance_id/spark_history_ui/api';\n            sub_filter
+    'attempt[\"log\"] = uiRoot + \"/api' 'attempt[\"log\"] = uiRoot + \"/$instance_id/spark_history_ui/api';\n
+    \           sub_filter 'href=\"/' 'href=\"/$instance_id/spark_history_ui/';\n
+    \           sub_filter_types application/javascript;\n            sub_filter
+    'return \"/log\"' 'return \"/$instance_id/spark_history_ui/log\"';\n            sub_filter_once
+    off;\n            error_page 301 302 303 = @sparkhistoryhandlerssl;\n        }
+    \          \n        location @sparkhistoryhandler {\n            proxy_set_header
+    Host $host;\n            proxy_set_header X-Real-IP $remote_addr;\n            proxy_set_header
+    X-Forwarded-For $proxy_add_x_forwarded_for;\n            proxy_set_header Accept-Encoding
+    \"\";\n            set $original_uri $uri;\n            set $orig_loc $upstream_http_location/;\n
+    \           #return 200 \"$original_uri $uri   loc $orig_loc $upstream_http_location
+    \    $is_args    $args\";\n            proxy_pass $orig_loc$is_args$args;\n
+    \           sub_filter '\"/static/' '\"/$1/spark_history_ui/static/';\n            sub_filter
+    \"/jobs/job/\" \"/jobs/job/\";\n            sub_filter \"/stages/stage/\" \"/stages/stage/\";\n
+    \           sub_filter \"/history/\" \"/$1/spark_history_ui/history/\";\n            sub_filter
+    \"/proxy/\" \"/$1/spark_history_ui/proxy/\";\n            sub_filter 'href=\"/?showIncomplete'
+    'href=\"/$1/spark_history_ui/?showIncomplete';\n            sub_filter 'href=\"/'
+    'href=\"/$1/spark_history_ui/';\n            sub_filter_types application/javascript;\n
+    \           sub_filter 'return \"/log\"' 'return \"/$1/spark_history_ui/log\"';\n
+    \           proxy_redirect ~^(http://[^/]+)/history(/.+)$ /$instance_id/spark_history_ui/history$2;\n
+    \           sub_filter_once off;\n        }\n        location ~ /(.*)/spark_history_ui(.*)$
+    {\n            location ~ /(.*)/spark_history_ui(.*)/taskTable$ {\n              proxy_pass
+    \  http://spark-history-headless-$1.$ns_domain:18080$2/taskTable$is_args$args;\n
+    \             set $instance_id  $1;\n              proxy_set_header Accept-Encoding
+    \"\";\n              sub_filter \"/history/\" \"/$1/spark_history_ui/history/\";\n
+    \             sub_filter \"/proxy/\" \"/$1/spark_history_ui/proxy/\";\n              sub_filter_once
+    off;\n              error_page 301 302 303 = @sparkhistoryhandler;\n            }\n
+    \           proxy_pass   http://spark-history-headless-$1.$ns_domain:18080$2$is_args$args;\n
+    \           set $instance_id  $1;\n            proxy_set_header Accept-Encoding
+    \"\";\n            sub_filter '\"/static/' '\"/$1/spark_history_ui/static/';\n
+    \           sub_filter \"/history/\" \"/$1/spark_history_ui/history/\";\n            sub_filter
+    \"/proxy/\" \"/$1/spark_history_ui/proxy/\";\n            sub_filter 'href=\"/?showIncomplete'
+    'href=\"/$1/spark_history_ui/?showIncomplete';\n            sub_filter \"/stages/stage/\"
+    \"/stages/stage/\";\n            sub_filter \"/jobs/job/\" \"/jobs/job/\";\n
+    \           sub_filter 'getJSON(uiRoot + \"/api' 'getJSON(uiRoot + \"/$1/spark_history_ui/api';\n
+    \           sub_filter 'attempt[\"log\"] = uiRoot + \"/api' 'attempt[\"log\"]
+    = uiRoot + \"/$1/spark_history_ui/api';\n            sub_filter 'href=\"/' 'href=\"/$1/spark_history_ui/';\n
+    \           sub_filter_types application/javascript;\n            sub_filter
+    'return \"/log\"' 'return \"/$1/spark_history_ui/log\"';\n            sub_filter_once
+    off;\n            error_page 301 302 303 = @sparkhistoryhandler;\n        }\n
+    \   }\n}"
+kind: ConfigMap
+metadata:
+  name: {{ .Values.config.spark.nginxConfigmap.name }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "5"

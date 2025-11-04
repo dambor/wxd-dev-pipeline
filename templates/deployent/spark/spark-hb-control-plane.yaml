@@ -1,0 +1,279 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    function: spark-hb-control-plane
+  name: spark-hb-control-plane
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "11"
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      function: spark-hb-control-plane
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        function: spark-hb-control-plane
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - /startup.sh ;/opt/wildfly/bin/standalone.sh -b 0.0.0.0
+        command:
+        - /bin/bash
+        - -c
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: {{ .Values.images.registry }}/{{ .Values.images.image.sparkCp }}{{ .Values.images.tag.sparkCp }}
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - ls
+            - /opt/hb/deployment_config/deployment.properties
+          failureThreshold: 120
+          periodSeconds: 60
+          successThreshold: 1
+          timeoutSeconds: 10
+        name: spark-hb-control-plane
+        ports:
+        - containerPort: 9443
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - |
+              curl -G -sS -k --max-time 30 HTTPS://localhost:9443/ae/ping
+          failureThreshold: 15
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 30
+        resources: {}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+        startupProbe:
+          exec:
+            command:
+            - /bin/bash
+            - /opt/hb/probe_config/check-startup-probe.sh
+          failureThreshold: 20
+          periodSeconds: 20
+          successThreshold: 1
+          timeoutSeconds: 30
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /logs
+          name: control-plane-logs
+          subPath: control-plane-logs
+        - mountPath: /opt/hb/confidential_config
+          name: spark-hb-cp-confidential-properties
+          readOnly: true
+        - mountPath: /opt/hb/deployment_config
+          name: spark-hb-cp-deployment-properties
+        - mountPath: /opt/hb/cluster-templates
+          name: spark-hb-cluster-template
+        - mountPath: /opt/hb/probe_config
+          name: spark-hb-controlplane-probe
+        - mountPath: /etc/internal-tls
+          name: internal-tls
+        - mountPath: /opt/hb/resource_limit
+          name: spark-hb-resource-limit-properties
+        - mountPath: /opt/hb/confidential_config/wdp
+          name: spark-hb-cp-wdp-secret
+        - mountPath: /opt/hb/confidential_config/jwt
+          name: spark-hb-zen-jwt-secret
+        - mountPath: /opt/hb/confidential_config/jwt/private
+          name: spark-hb-zen-secret-jwt-private
+        - mountPath: /opt/hb/confidential_config/jwt/jwks
+          name: spark-hb-zen-secret-jwks
+          readOnly: true
+        - mountPath: /opt/java/openjdk/lib/security/cacerts
+          name: spark-hb-java-trust-store
+          readOnly: true
+          subPath: cacerts
+        - mountPath: /opt/hb/key.p12
+          name: spark-hb-java-trust-store
+          readOnly: true
+          subPath: key.p12
+        - mountPath: /var/log/audit
+          name: spark-hb-audit-logs-vol
+        - mountPath: /opt/hb/confidential_config/cpd_service_broker
+          name: service-broker-token
+          readOnly: true
+      - args:
+        - /startup.sh /tmp/rsyslog.d
+        command:
+        - /bin/bash
+        - -c
+        env:
+        - name: AUDIT_ENABLED
+          value: "true"
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: NODENAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        - name: PODIPADDRESS
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        image: {{ .Values.images.registry }}/{{ .Values.images.image.sparkRsyslog }}{{ .Values.images.tag.sparkRsyslog }}
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - ls
+            - /tmp/rsyslog.d
+          failureThreshold: 120
+          periodSeconds: 300
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: spark-hb-rsyslog-sidecar
+        readinessProbe:
+          exec:
+            command:
+            - ls
+            - /tmp/rsyslog.d
+          failureThreshold: 120
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 1
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+        startupProbe:
+          exec:
+            command:
+            - ls
+            - /tmp/rsyslog.d
+          failureThreshold: 20
+          periodSeconds: 20
+          successThreshold: 1
+          timeoutSeconds: 1
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/log/audit
+          name: spark-hb-audit-logs-vol
+        - mountPath: /tmp/rsyslog.d
+          name: spark-hb-rsyslog-config-vol
+        - mountPath: /etc/internal-tls
+          name: internal-tls
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: control-plane-logs
+        persistentVolumeClaim:
+          claimName: spark-hb-control-plane-logs
+      - name: spark-hb-cp-confidential-properties
+        secret:
+          defaultMode: 420
+          secretName: spark-hb-confidential-properties
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: deployment-properties
+            path: deployment.properties
+          name: spark-hb-deployment-properties
+        name: spark-hb-cp-deployment-properties
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: os-image-json
+            path: os-image.json
+          name: spark-hb-cluster-template
+        name: spark-hb-cluster-template
+      - configMap:
+          defaultMode: 420
+          name: spark-hb-controlplane-probe
+        name: spark-hb-controlplane-probe
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: resource-limit-properties
+            path: resource-limit.properties
+          name: spark-hb-resource-limit
+        name: spark-hb-resource-limit-properties
+      - name: spark-hb-cp-wdp-secret
+        secret:
+          defaultMode: 420
+          items:
+          - key: service-id-credentials
+            path: wdp.properties
+          secretName: wdp-service-id
+      - name: spark-hb-zen-jwt-secret
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: ibm-zen-secret-jwt
+      - name: spark-hb-zen-secret-jwt-private
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: ibm-zen-secret-jwt-private
+      - name: spark-hb-zen-secret-jwks
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: ibm-zen-secret-jwks
+      - name: spark-hb-java-trust-store
+        secret:
+          defaultMode: 420
+          secretName: spark-hb-java-trust-store
+      - configMap:
+          defaultMode: 420
+          name: spark-hb-rsyslog-config
+        name: spark-hb-rsyslog-config-vol
+      - emptyDir:
+          sizeLimit: 250Mi
+        name: spark-hb-audit-logs-vol
+      - name: internal-tls
+        secret:
+          defaultMode: 420
+          secretName: internal-tls
+      - name: service-broker-token
+        secret:
+          defaultMode: 420
+          items:
+          - key: token
+            path: cpd_service_broker.properties
+          secretName: zen-service-broker-secret

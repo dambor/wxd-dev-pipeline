@@ -1,0 +1,480 @@
+apiVersion: v1
+data:
+  cleanup-after-restore.py: "#!/usr/bin/python\n'''\nScript to cleanup spark jobs\n'''\n\nimport
+    json, time\nfrom datetime import datetime\nimport argparse\nimport requests\nimport
+    sys\nimport os\nimport urllib3\nurllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)\n\n\ndef
+    purge_kernels(kernel_service_url,instance_id,state):\n    response = requests.get(\"\"\"{}/{}/meta/api/kernels?state={}\"\"\".format(kernel_service_url,
+    instance_id, state), headers=headers, verify=False)\n    if response.status_code
+    == 200:\n        kernel_list_json = response.json()\n        if len(kernel_list_json)
+    != 0 :\n            for kernel in kernel_list_json:\n                kernel_id
+    = kernel[\"kernel_id\"]\n                print(kernel_id)\n                release_name=getReleaseName(kernel_id)\n
+    \               print(release_name)\n                delete_kernel_release(kernel_id,release_name)\n
+    \       else:\n            print(\"There are no kernels in {} state under instance
+    {}\".format(state,instance_id))\n    else:\n        print(\"Failed to get kernels
+    in state {}, got responseCode {}\".format(state,response))\n\n\ndef purge_jobs(job_service_url,instance_id,state):\n
+    \   j_response = requests.get(\"{}/{}/jobs/meta/list?state={}\".format(job_service_url,
+    instance_id,state), headers=headers, verify=False)\n    if j_response.status_code
+    == 200:\n        jobs = j_response.json()\n        if len(jobs) != 0 :\n            for
+    job in jobs:\n                job_id = job[\"job_id\"]\n                print(job_id)\n
+    \               state = job[\"state\"]\n                release_name=getReleaseName(job_id)\n
+    \               print(release_name)\n                delete_job_release(job_id,release_name)\n
+    \       else:\n            print(\"There are no jobs in {} state under instance
+    {}\".format(state,instance_id))\n    else:\n        print(\"Failed to get jobs
+    in state {}, got responseCode {}\".format(state,response))\n\n\n\n#-------------------------------------------------------------------------------------------#\n#
+    Get release names\n#-------------------------------------------------------------------------------------------#\ndef
+    getReleaseName(unique_id):\n    host=os.getenv(\"KUBERNETES_SERVICE_HOST\")\n
+    \   print(host)\n    port=os.getenv(\"KUBERNETES_SERVICE_PORT\")\n    print(port)\n
+    \   f = open(\"/var/run/secrets/kubernetes.io/serviceaccount/token\", \"r\")\n
+    \   token=f.read()\n    print(token)\n    result = requests.get(\"https://{}:{}/api/v1/namespaces/{}/pods?labelSelector=unique_id%3D{}\".format(host,port,namespace,unique_id),
+    headers={'Authorization': 'Bearer {}'.format(token)}, verify=False)\n    print(result.text)\n
+    \   response=json.loads(result.text)\n    return response['items'][0]['metadata']['labels']['release']\n\n#-------------------------------------------------------------------------------------------#\n#
+    Delete Kernel\n#-------------------------------------------------------------------------------------------#\n\ndef
+    delete_kernel_release(kernel_id,release_name):\n    print(\"Deleting resource
+    for kernel {}\".format(kernel_id))\n    f = open(\"/opt/hb/confidential_config/cpd_service_broker/cpd_service_broker.properties\",
+    \"r\")\n    platform_token=f.read()\n    response = requests.delete(\"http://zen-core-api-svc:3333/v2/release/{}\".format(release_name),
+    headers={'secret': '{}'.format(platform_token)}, verify=False,timeout=40)\n    if
+    response.status_code != 202:\n        print(\"Failed to delete kernel {} of instance
+    {}\".format(kernel_id, instance_id))\n\n\n#-------------------------------------------------------------------------------------------#\n#
+    Delete Job\n#-------------------------------------------------------------------------------------------#\n\ndef
+    delete_job_release(job_id,release_name):\n    print(\"Deleting resource for job
+    {}\".format(job_id))\n    f = open(\"/opt/hb/confidential_config/cpd_service_broker/cpd_service_broker.properties\",
+    \"r\")\n    platform_token=f.read()\n    print(platform_token)\n    response =
+    requests.delete(\"http://zen-core-api-svc:3333/v2/release/{}\".format(release_name),
+    headers={'secret': '{}'.format(platform_token)}, verify=False,timeout=40)\n    if
+    response.status_code != 202:\n        print(\"Failed to delete Job {} of instance
+    {}\".format(job_id, instance_id))\n\n# ---------------------------------------------
+    \ PARSE ARGS ------------------------------------------- #\nparser = argparse.ArgumentParser()\nparser.add_argument(\"namespace\",
+    help=\"Current namespace\")\nargs = parser.parse_args()\n\n# ---------------------------------------------
+    \ BUILD JSON  ------------------------------------------- #\ninstance_manager_url
+    = \"https://spark-hb-control-plane:443/instance_manager/v1/instance\"\nkernel_service_url
+    = \"https://spark-hb-control-plane:443/ae/v1\"\njob_service_url = \"https://spark-hb-control-plane:443/job_service/v2\"\nnamespace=args.namespace\n\nprint(\"Start
+    cleanup\")\n\n\n\nheaders = {'Content-Type':'application/json','Accept':'application/json'}\nresponse
+    = requests.get(\"{}/list\".format(instance_manager_url), headers=headers, verify=False)\n\nif
+    response.status_code == 200:\n    instances = response.json()\n\n    for instance
+    in instances:\n        instance_id = instance[\"_id\"]\n\n        if \"api_key\"
+    not in instance:\n            api_key = None\n        else:\n            api_key
+    = instance[\"api_key\"]\n\n        headers = {'Accept':'application/json','X-Api-Key':api_key}\n\n
+    \       # Delete kernels stuck in Deploying or Deleting state\n        purge_kernels(kernel_service_url,instance_id,\"Deploying\")\n
+    \       purge_kernels(kernel_service_url,instance_id,\"Deleting\")\n        #
+    Delete jobs stuck in Deploying or Deleting state\n        purge_jobs(job_service_url,instance_id,\"DEPLOYING\")\n
+    \       purge_jobs(job_service_url,instance_id,\"DELETING\")\n    exit(0)\nelse:\n
+    \   print(\"Failed to get instances, got responseCode {}\".format(response))\n
+    \   exit(2)         \n    "
+  cleanup-jobs-master-script.sh: "#!/bin/bash      \n\nscript_path=$1\ndb_url_path=$2/pgpass\nschema=$3\ncert_path=$4\nclient_crt=$5\nclient_key=$6
+    \   \ninstance_mgr_url=$7\njob_service_url=$8\ncleanup_config_path=$9\n\nexec_cmd()\n{\n
+    \   CMD=$1\n    eval $CMD\n    if [ $? -ne 0 ]\n    then\n        echo \"Error
+    : failed to execute the command: $CMD\"\n        exit 1\n    fi\n}\n\n#The below
+    \ would execute  REST API's for deletion. But there could be some job pods stuck
+    in deleting state(their db state will be DELETED, DELETE_FAILED) .\n#We force
+    delete such jobs with helm uninstallation. In the next cron iteration the DELETE
+    API's will be called on `DELETE_FAILED` jobs and their DB state will be updated
+    to DELETED.\n#Delete API returns 204 even if the corresponding job deployment
+    is not found in dataplane. Verified this behavior in CPD 4.6.1 code.   \nfor i
+    in $(seq 1 5); do\n    python -u ${script_path}/cleanup-spark-jobs.py ${instance_mgr_url}
+    ${job_service_url} ${cleanup_config_path}\n    status=$?\n    echo \"status $status\"\n
+    \   if [ $status -ne 0 ]; then\n        if [ $i -eq 5 ]; then\n            echo
+    \"could not execute the job deletion python script ${script_path}/cleanup-spark-jobs.py\"\n
+    \           break\n        fi\n        #This code calls REST API's to fetch instance
+    details, eligible jobs for deletion and finally executes REST API's to delete
+    this job.\n        echo \"could not execute the job deletion python script ${script_path}/cleanup-spark-jobs.py.
+    Retry $i\"\n        sleep $[ ( $RANDOM % 10 )  + 1 ]s\n        continue\n    else\n
+    \       break\n    fi\ndone \n#sleep for 90 seconds before calling the cleanup
+    script to force delete the job pods\nsleep 90s    \nsh ${script_path}/cleanup-orphaned-jobs.sh
+    ${script_path} ${db_url_path} ${schema} ${cert_path} ${client_crt} ${client_key}
+    \  \n   "
+  cleanup-orphaned-jobs.sh: "#!/bin/bash      \nscript_path=$1\ndbUrl=$2\nschema=$3\ncert_path=$4\nclient_crt=$5\nclient_key=$6
+    \n\nexec_cmd()\n{\n    CMD=$1\n    eval $CMD\n    if [ $? -ne 0 ]\n    then\n
+    \       echo \"Error : failed to execute the command: $CMD\"\n        exit 1\n
+    \   fi\n}\n\n\nmetastore_certs_path=\"/tmp/certs\"\nexec_cmd \"mkdir -p $metastore_certs_path\"\nexec_cmd
+    \"cp -r $cert_path/..data/* $metastore_certs_path\"\nexec_cmd \"chmod 600 $metastore_certs_path/*\"\n\nTIMEOUT=120\n\nDB_URL=$(cat
+    \"$dbUrl\")\n\n#echo ${db_url}\necho \"job  pods cleanup\"\nJOBQUERY_V3=\"select
+    r.application_id from runtime r, application a where  a.state in ('FINISHED',
+    'FAILED', 'KILLED', 'STOPPED', 'COMPLETED', 'OPS_TERMINATED' , 'AUTO_TERMINATED')
+    and r.state in ('DELETING','DELETE_FAILED') and a.application_id = r.application_id
+    and (abs(extract(epoch from r.state_change_time - current_timestamp)/3600) < 5
+    or abs(extract(epoch from r.updation_time - current_timestamp)/3600) < 5)\"\n\nRUN_OUTPUT_FOLDER=\"/tmp/tmpAppCleanup\"\nAPPLICATION_ID_FILE_TO_DELETE_V3=\"${RUN_OUTPUT_FOLDER}/application_queryv3_output.txt\"\n\nmkdir
+    -p ${RUN_OUTPUT_FOLDER}\nCOMMA_SEPARATED_APPLICATION_IDS=\"\"\n\nupdate_applicationids_to_comma_seperared_list()
+    {\n    APPLICATION_ID_FILE_TO_DELETE=$1\n    APPLICATION_IDS=$(cat ${APPLICATION_ID_FILE_TO_DELETE})\n
+    \   #echo \"APPLICATION_ID_FILE_TO_DELETE $APPLICATION_ID_FILE_TO_DELETE\"\n    #echo
+    $(cat ${APPLICATION_ID_FILE_TO_DELETE})\n    for APPLICATION_ID in ${APPLICATION_IDS};
+    do\n        echo \"ID-$APPLICATION_ID-\"\n        if [[ -z \"${COMMA_SEPARATED_APPLICATION_IDS}\"
+    ]]; then\n        echo \"COMMA_SEPARATED_APPLICATION_IDS is empty\"\n            COMMA_SEPARATED_APPLICATION_IDS=$(echo
+    \"${APPLICATION_ID}\")\n        else\n        echo \"COMMA_SEPARATED_APPLICATION_IDS
+    is not empty\"\n            COMMA_SEPARATED_APPLICATION_IDS=$(echo \"${COMMA_SEPARATED_APPLICATION_IDS},
+    ${APPLICATION_ID}\")\n        fi\n    done\n}\n\nfor i in $(seq 1 5); do\n    python
+    -u ${script_path}/select_query_db.py -q \"${JOBQUERY_V3}\" -d ${DB_URL} -s ${schema}
+    -c $metastore_certs_path/$client_crt -k $metastore_certs_path/$client_key -o ${APPLICATION_ID_FILE_TO_DELETE_V3}\n
+    \   status=$?\n    echo \"status $status\"\n    if [ $status -ne 0 ]; then\n        \\rm
+    -f ${APPLICATION_ID_FILE_TO_DELETE_V3}\n        if [ $i -eq 5 ]; then\n            echo
+    \"could not read Application table in given time. Exiting with error\"\n            #echo
+    \"FAILED\" >${ERROR_STATUS}\n            cat /dev/null >${APPLICATION_ID_FILE_TO_DELETE_V3}\n
+    \           break\n        fi\n        echo \"could not read Application table
+    in given time. Retry $i\"\n        sleep $[ ( $RANDOM % 10 )  + 1 ]s\n        continue\n
+    \   else\n        break\n    fi\ndone   \n\n#cleanup the deployments and pods\nallow_delete=true\n#Get
+    the list of deployments, this will later be used intersect with runtime ids to
+    delete to get the final list of runtime\n/tmp/kubectl get deployments | awk '{print
+    $1}' > ${RUN_OUTPUT_FOLDER}/deployments.txt\n\nupdate_applicationids_to_comma_seperared_list
+    ${APPLICATION_ID_FILE_TO_DELETE_V3}\necho \"oc get pods,service -l 'application_id
+    in ($COMMA_SEPARATED_APPLICATION_IDS)' -n namespace\"\n\n\nif [[ ! -z \"${COMMA_SEPARATED_APPLICATION_IDS}\"
+    ]]; then\n    if [[ \"$allow_delete\" == true ]]; then\n        #Helm uninstall
+    for the applications if not yet done\n        echo \"Deleting v3 helm releases\"\n
+    \       eval \"/tmp/kubectl get pods,services --show-labels -l 'job_id in (${COMMA_SEPARATED_APPLICATION_IDS})'\"
+    | grep -i job_id | awk '{print $4 \" \" $5 \" \" $6 \" \" $7 \" \" $8 \" \" $9}'
+    | awk -F'[ ]' '{for(i=0;i<=NF;i++){if($i~/chart=/){a=$i}} print a}' | awk -F'[,]'
+    '{for(i=0;i<=NF;i++){if($i~/^release=/){a=$i}} print a}' | awk -F'[=]' '{print
+    $2}' | sort | uniq | xargs -i helm uninstall {}\n        \n        #intersect
+    the application ids to delete from db with the actual deployments found in the
+    dataplane and reemove the corresponding deployments\n        echo \"Deleting v3
+    deployments\"\n        grep -h -w -f ${APPLICATION_ID_FILE_TO_DELETE_V3} ${RUN_OUTPUT_FOLDER}/deployments.txt
+    | sort | uniq | xargs -i /tmp/kubectl delete deployment {} >>\"${RUN_OUTPUT_FOLDER}/Deployments_v3_deleted.txt\"\n
+    \       echo \"Deleting pods and services\"\n        eval \"/tmp/kubectl delete
+    pods,service -l 'job_id in (${COMMA_SEPARATED_APPLICATION_IDS})'\" >\"${RUN_OUTPUT_FOLDER}/Pods_deleted.txt\"\n
+    \   fi\nfi"
+  cleanup-spark-jobs.py: "#!/usr/bin/python\n'''\nScript to cleanup spark jobs\n'''\n\n#
+    ---------------------------------------------  IMPORTS ---------------------------------------------
+    #\n\nimport json, datetime, time\nimport argparse\nimport requests\nimport sys\nimport
+    urllib3\nurllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)\t\n#
+    ---------------------------------------------  FUNCTIONS --------------------------------------------
+    #\ndef purge_active_jobs(job_service_url,instance_id,purge_time,instance_version):
+    \      \t\n  if instance_version == \"v3\":     \n      print(\"purge request
+    for v3 applications and kernels for instance {} of version {}\".format(instance_id,
+    instance_version))\n      #print(\"{}/v3/instances/{}/spark/applications/meta/list?state=ACTIVE\".format(job_service_url,
+    instance_id))\n      j_response = requests.get(\"{}/v3/instances/{}/spark/applications/meta/list?state=ACTIVE\".format(job_service_url,
+    instance_id), headers=headers, verify=False, timeout=120)        \n      if j_response.status_code
+    == 200:\n          jobs = j_response.json()\n          for job in jobs:\n              job_id
+    = job[\"application_id\"]\n              print(\"Purge request for instance {}
+    application_id {}\".format(instance_id,job_id))\n              #hb_endpoint -
+    https://internal-nginx-svc:12443/v2/spark\t  \n              #url = \"{}/v2/spark/v3/instances/{}/spark/applications/{}\".format(hb_endpoint,
+    instance_id, job_id)\t\n              url = \"{}/v3/instances/{}/spark/applications/{}\".format(job_service_url,
+    instance_id, job_id)\t                \t\n              job_state = job[\"state\"]\n
+    \             print(\"Found Job State {}\".format(job_state))\t  \n              if
+    (job_state == \"FAILED\") or (job_state == \"FINISHED\"):\n                  if
+    \"start_time\" in job:\n                      job_time = job[\"start_time\"]\n
+    \                 elif \"finish_time\" in job:\n                      job_time
+    = job[\"finish_time\"]\n                  elif \"fail_time\" in job:\n                      job_time
+    = job[\"fail_time\"]\n                  else:\n                      getjob_response
+    = requests.get(url, headers=headers, verify=False)\n                      if getjob_response.status_code
+    != 200:\n                          print(\"\\n\\n\\nCould not found  any time,
+    making get call on job : {}, cluster_state : {}, HTTP code : {}\\n\\n\\n\".format(job_id,state,getjob_response.status_code))\n
+    \                     else:\n                          print(\"\\n\\n\\nCould
+    not found any time, failed get on job : {}, cluster_state : {}, HTTP code : {}\\n\\n\\n\".format(job_id,state,getjob_response.status_code))\n
+    \                     print(\"continuing with the next job\")  \n                      continue\n
+    \             else:\n                  try:\n                    print(\"Try to
+    get Job Updated State\")\n                    getjob_response = requests.get(url,
+    headers=headers, verify=False, timeout=5)\n                    if getjob_response.status_code
+    != 200:\n                        print(\"\\n\\n\\nCould not found finish_time,
+    making get call on job : {}, HTTP code : {}\\n\\n\\n\".format(job_id,getjob_response.status_code))\n
+    \                   else:\n                        print(\"\\n\\n\\nCould not
+    found finish_time, failed get on job : {}, HTTP code : {}\\n\\n\\n\".format(job_id,getjob_response.status_code))\n
+    \                   print(\"continuing with the next job\")  \n                    continue\n
+    \                 except (requests.Timeout, requests.ConnectionError, KeyError)
+    as e:\n                    print(\"Timeout occurred - move forward\")\t  \n              if
+    (job_state == \"FAILED\") or (job_state == \"FINISHED\"):\n                print(\"job_time
+    : {}\".format(job_time))\n                date_time_str = job_time.split('.')[0]\n
+    \               date_time_obj = datetime.datetime.strptime(date_time_str, '%A
+    %d %B %Y %H:%M:%S')\n                job_time_sec = time.mktime(date_time_obj.timetuple())\t
+    \ \n                current_time = time.time()\n                diff_in_min =
+    (current_time - time.mktime(date_time_obj.timetuple()))/60\n                if
+    diff_in_min >= purge_time:\n                    url = \"{}/v3/instances/{}/spark/applications/{}\".format(job_service_url,
+    instance_id, job_id)\t\n                    try:\n                      dj_response
+    = requests.delete(url, headers=headers, verify=False,timeout=40)\n                      if
+    dj_response.status_code != 204:\n                          print(\"\\n\\n\\nFailed
+    to delete job_id : {}, job_state : {}, time diff : {}, HTTP code : {}\\n\\n\\n\".format(job_id,job_state,diff_in_min,dj_response.status_code))\n
+    \                     else:\n                          print(\"\\n\\n\\nDeleted
+    job_id : {}, job_state : {}, time diff : {}, HTTP code : {}\\n\\n\\n\".format(job_id,job_state,diff_in_min,dj_response.status_code))\n
+    \                   except (requests.Timeout, requests.ConnectionError, KeyError)
+    as e:\n                      print(\"Timeout occurred in deleting JOB {} - move
+    forward\".format(job_id))      \n      else:\n          print(\"Failed to get
+    jobs in state : ACTIVE. HTTP Code : {}\".format(j_response.status_code))        \t\n\ndef
+    purge_failed_or_delete_failed_jobs(job_service_url,instance_id,purge_time,instance_version):\n
+    \   if instance_version == \"v3\":\n      print(\"purge request failed / deleted
+    apps for v3 applications and kernels for instance {} of version {}\".format(instance_id,
+    instance_version))\n      #print(\"{}/v3/instances/{}/spark/applications/meta/list?state=FAILED&state=DELETE_FAILED\".format(job_service_url,
+    instance_id))\n      j_response = requests.get(\"{}/v3/instances/{}/spark/applications/meta/list?state=FAILED&state=DELETE_FAILED\".format(job_service_url,
+    instance_id), headers=headers, verify=False, timeout=120)        \n      if j_response.status_code
+    == 200:\n          jobs = j_response.json()\t  \n          for job in jobs:\n
+    \             job_id = job[\"application_id\"]\n              state = job[\"state\"]\n
+    \             #url = \"{}/{}/v2/jobs/{}\".format(hb_endpoint, instance_id, job_id)\n
+    \             #url = \"{}/v2/spark/v3/instances/{}/spark/applications/{}\".format(hb_endpoint,
+    instance_id, job_id)\n              try:\n                #dj_response = requests.delete(url,
+    headers=headers, verify=False,timeout=40)\n                dj_response = requests.delete(\"{}/v3/instances/{}/spark/applications/{}\".format(job_service_url,
+    instance_id,job_id), headers=headers, verify=False, timeout=120)        \t\n                if
+    dj_response.status_code != 204:\n                    print(\"\\n\\n\\nFailed to
+    delete job_id : {}, cluster_state : {}, HTTP code : {}\\n\\n\\n\".format(job_id,state,dj_response.status_code))\n
+    \               else:\n                    print(\"\\n\\n\\nDeleted job_id : {},
+    cluster_state : {},  HTTP code : {}\\n\\n\\n\".format(job_id,state,dj_response.status_code))\n
+    \             except (requests.Timeout, requests.ConnectionError, KeyError) as
+    e:\n                print(\"Timeout occurred in deleting JOB {} - move forward\".format(job_id))\n
+    \     else:\n          print(\"Failed to get jobs in state : FAILED,DELETE_FAILED.
+    HTTP Code : {}\".format(j_response.status_code))       \n\n# ---------------------------------------------
+    \ PARSE ARGS ------------------------------------------- #\nparser = argparse.ArgumentParser()\nparser.add_argument(\"instance_manager_url\",
+    help=\"Instance manager url to get instance details\")\n#parser.add_argument(\"hb_endpoint\",
+    help=\"Hummingbird endpoint url to delete jobs\")\nparser.add_argument(\"job_service_url\",
+    help=\"Job service url to get metadata of jobs\")\nparser.add_argument(\"purge_time_file\",
+    help=\"purge time for FINISHED / FAILED jobs\")\nargs = parser.parse_args()\t\n\n#
+    ---------------------------------------------  BUILD JSON  -------------------------------------------
+    #\ninstance_manager_url = args.instance_manager_url\n#hb_endpoint = args.hb_endpoint\njob_service_url
+    = args.job_service_url\n \npurge_time_file = args.purge_time_file\t\nprint(\"Start
+    HB Jobs cleanup\")\t\nwith open(purge_time_file) as json_file:\n    data = json.load(json_file)\n
+    \   purge_time = data[\"spark\"][\"idleTimeBeforeShutdown\"]\n    purge_time =
+    purge_time\n    print(\"setting purge time : {}mins\".format(purge_time))\t\n\nheaders
+    = {'Content-Type':'application/json','Accept':'application/json'}\n# ---------------------------------------------
+    \ cleanup v3/v4 instances ------------------------------------------- #\nprint(\"LISTING
+    {}/v3/instances\".format(instance_manager_url))\nresponse = requests.get(\"{}/v3/instances\".format(instance_manager_url),
+    headers=headers, verify=False, timeout=120)\t\nif response.status_code == 200:\n
+    \   instances = response.json()\n    print(\"Fetched v3 instances \")\n    for
+    instance in instances:\n        instance_id = instance[\"instance_id\"]\n        print(\"Get
+    the v3 instance details for instance {}\".format(instance_id))\n        if purge_time
+    == -1:\n            purge_failed_or_delete_failed_jobs(job_service_url,instance_id,purge_time,'v3')\n
+    \       else:\n            purge_active_jobs(job_service_url,instance_id,purge_time,'v3')\n
+    \           purge_failed_or_delete_failed_jobs(job_service_url,instance_id,purge_time,'v3')\n
+    \   exit(0)\nelse:\n    print(\"Failed to get instances, got responseCode {}\".format(response))\n
+    \   exit(2)\n           "
+  cleanup-terminating-pod.sh: |-
+    #!/bin/bash
+
+    kubectl_retry(){
+    cmd=$1
+    count=$2
+    while [[ $count -gt 0 ]]
+    do
+        echo "count $count"
+        eval $cmd
+        exit_code=$?
+        echo "exit_code : $exit_code"
+        if [ $exit_code -eq 0 ]
+        then
+           return 0
+        fi
+        count=$(($count - 1))
+        return $exit_code
+    done
+    }
+
+    #--------------------------
+    # Main
+    #--------------------------
+
+    pod_list=$(./tmp/kubectl get pods | egrep "(spark-history-deployment-*)|((jkg-deployment|spark-worker|spark-master).*-.*-.*-.*-.*)" | grep -i Terminating | awk '{ print $1}')
+
+    if [[ $pod_list ]]
+    then
+        for i in {1..3}
+        do
+            kubectl_retry "./tmp/kubectl delete pod --grace-period=0 --force $pod_list" 3
+        done
+    else
+        echo "There are not pods stuck in terminating state"
+    fi
+    exit 0
+  purge_idle_failed_kernel.py: |-
+    #!/usr/bin/python
+    '''
+    Script to cleanup spark jobs
+    '''
+
+    import json, time
+    from datetime import datetime
+    import argparse
+    import requests
+    import sys
+    import urllib3
+    import subprocess
+
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    def purge_idle_kernel(active_kernel_json,kernel_service_url,instance_id,kernel_id,api_key):
+        active_time = active_kernel_json["last_activity"]
+        kernel_state = active_kernel_json["execution_state"]
+        if kernel_state != "busy":
+            print("kernel : {}".format(kernel_id))
+            utc_dt = datetime.strptime(active_time, "%Y-%m-%dT%H:%M:%S.%fZ")
+            actual_time = (utc_dt - datetime(1970, 1, 1)).total_seconds()
+            current_time = time.time()
+            time_diff = current_time - actual_time
+            time_diff = time_diff/60
+
+            print("time_diff {}, purge_time {}, current_time {}".format(time_diff,purge_time,current_time))
+
+            if time_diff > purge_time:
+                print("\n\tkernel activation time : {}\n\tIdle for time(s) : {}\n\tDeleting kernel".format(active_time,time_diff))
+                delete_kernel(kernel_service_url,instance_id,kernel_id,api_key)
+
+    def purge_active_kernels(kernel_service_url,instance_id,hb_endpoint,purge_time):
+        print("Purge request for instance {}".format(instance_id))
+        k_response = requests.get("{}/{}/meta/api/kernels?state=Active".format(kernel_service_url, instance_id), headers=headers, verify=False, timeout=120)
+        if k_response.status_code == 200:
+            kernel_list_json = k_response.json()
+            if len(kernel_list_json) != 0 :
+                for kernel in kernel_list_json:
+                    kernel_id = kernel["kernel_id"]
+                    try:
+                        state_api_response = requests.get("{}/{}/jkg/api/kernels/{}".format(kernel_service_url, instance_id, kernel_id), headers=headers, verify=False, timeout=120)
+                        if state_api_response.status_code == 200:
+                            active_kernel_json = state_api_response.json()
+                            purge_idle_kernel(active_kernel_json,kernel_service_url,instance_id,kernel_id,api_key)
+                        elif state_api_response.status_code == 404:
+                            dp_nginx_response = requests.get("{}/api/kernels/{}".format(state_api_response.url,kernel_id), verify=False, timeout=120)
+                            if dp_nginx_response.status_code == 404:
+                                print("JEG reported kernel not found, deleting kernel")
+                                delete_kernel(kernel_service_url,instance_id,kernel_id,api_key)
+                            else:
+                                active_kernel_json = dp_nginx_response.json()
+                                purge_idle_kernel(active_kernel_json,kernel_service_url,instance_id,kernel_id,api_key)
+                        else:
+                            print("Failed to get {} jkg kernel state, got responseCode {}".format(kernel_id, state_api_response))
+                            delete_kernel(kernel_service_url,instance_id,kernel_id,api_key)
+                    except:
+                        print("Failed to get kernel status, deleting kernel")
+                        delete_kernel(kernel_service_url,instance_id,kernel_id,api_key)
+            else:
+                print("There are no kernels in 'Active' state under instance {}".format(instance_id))
+        else:
+            print("Failed to get kernels in state 'Active', got responseCode {}".format(k_response))
+            exit(2)
+
+    def purge_kernels_by_state(kernel_service_url, state, instance_id,hb_endpoint):
+        response = requests.get("""{}/{}/meta/api/kernels?state={}""".format(kernel_service_url, instance_id, state), headers=headers, verify=False, timeout=120)
+        if response.status_code == 200:
+            kernel_list_json = response.json()
+            if len(kernel_list_json) != 0 :
+                for kernel in kernel_list_json:
+                    kernel_id = kernel["kernel_id"]
+                    delete_kernel(kernel_service_url,instance_id,kernel_id,api_key)
+            else:
+                print("There are no kernels in '{}' state under instance {}".format(state, instance_id))
+        else:
+            print("Failed to get kernels in state '{}', got responseCode {}".format(state, response))
+
+    #-------------------------------------------------------------------------------------------#
+    # Delete Kernel
+    #-------------------------------------------------------------------------------------------#
+    def delete_kernel(hb_endpoint,instance_id,kernel_id, api_key):
+        print("Deleting kernel {}".format(kernel_id))
+        response = requests.delete("{}/{}/jkg/api/kernels/{}".format(hb_endpoint, instance_id, kernel_id), headers=headers, verify=False,timeout=40)
+        if response.status_code != 204:
+            print("Failed to delete kernel {} of instance {}".format(kernel_id, instance_id))
+
+    # ---------------------------------------------  PARSE ARGS ------------------------------------------- #
+    parser = argparse.ArgumentParser()
+    parser.add_argument("instance_manager_url", help="Instance manager url to get instance details")
+    parser.add_argument("instance_managerv3_url", help="Instance manager v3 url to get instance details")
+    parser.add_argument("hb_endpoint", help="Hummingbird endpoint url to delete jobs")
+    parser.add_argument("kernel_service_url", help="Job service url to get metadata of jobs")
+    parser.add_argument("purge_time_file", help="purge time for FINISHED / FAILED jobs")
+    args = parser.parse_args()
+
+
+    # ---------------------------------------------  BUILD JSON  ------------------------------------------- #
+    instance_manager_url = args.instance_manager_url
+    hb_endpoint = args.hb_endpoint
+    kernel_service_url = args.kernel_service_url
+    instance_managerv3_url = args.instance_managerv3_url
+
+    purge_time_file = args.purge_time_file
+
+    print("Start HB Kernel cleanup")
+
+    with open(purge_time_file) as json_file:
+        data = json.load(json_file)
+        purge_time = data["spark"]["idleTimeBeforeShutdown"]
+        purge_time = purge_time
+        print("setting purge time : {}mins".format(purge_time))
+
+
+    headers = {'Content-Type':'application/json','Accept':'application/json'}
+    v2instance_response = requests.get("{}/list".format(instance_manager_url), headers=headers, verify=False, timeout=120)
+
+    v3instance_response = requests.get("{}".format(instance_managerv3_url), headers=headers, verify=False, timeout=120)
+
+    if v2instance_response.status_code == 200:
+        v2instances = v2instance_response.json()
+    else:
+        print("Failed to get v2 instances, got responseCode {}".format(response))
+        exit(2)
+
+    if v3instance_response.status_code == 200:
+        v3instances = v3instance_response.json()
+    else:
+        print("Failed to get v3 instances, got responseCode {}".format(response))
+        exit(2)
+
+    for v2instance in v2instances:
+        instance_id = v2instance["_id"]
+
+        if "api_key" not in v2instance:
+            api_key = None
+        else:
+            api_key = v2instance["api_key"]
+
+        headers = {'Accept':'application/json','X-Api-Key':api_key}
+
+        print("instance : {}".format(instance_id))
+        if purge_time != -1:
+            purge_active_kernels(kernel_service_url,instance_id,hb_endpoint,purge_time)
+
+        purge_kernels_by_state(kernel_service_url, 'Failed', instance_id, hb_endpoint)
+        purge_kernels_by_state(kernel_service_url, 'DeleteFailed', instance_id, hb_endpoint)
+
+    for v3instance in v3instances:
+        instance_id = v3instance["instance_id"]
+
+        if "api_key" not in v3instance:
+            api_key = None
+        else:
+            api_key = v3instance["api_key"]
+
+        headers = {'Accept':'application/json','X-Api-Key':api_key}
+
+        print("instance : {}".format(instance_id))
+        if purge_time != -1:
+            purge_active_kernels(kernel_service_url,instance_id,hb_endpoint,purge_time)
+
+        purge_kernels_by_state(kernel_service_url, 'Failed', instance_id, hb_endpoint)
+        purge_kernels_by_state(kernel_service_url, 'DeleteFailed', instance_id, hb_endpoint)
+    exit(0)
+  select_query_db.py: "#!/usr/bin/python\n'''\nPython to query jobs to be cleaned
+    up\n''' \n\nimport psycopg2\nimport sys\nimport io\nimport csv\nimport argparse\n\nparser
+    = argparse.ArgumentParser(description='Cleaning up orpahned pods.')\nparser.add_argument('-q',
+    '--query', help='query to be executed', required=True)\nparser.add_argument('-d',
+    '--databasedetails', help='db_url to connect', required=True)\nparser.add_argument('-s',
+    '--schema', help='database schema', required=True)\nparser.add_argument('-c',
+    '--clientcrt', help='client crt to connect to db', required=True)\nparser.add_argument('-k',
+    '--clientkey', help='client key to connect to db', required=True)\nparser.add_argument('-o',
+    '--outputfile', help='file to write the results to', required=True)\n\nargs =
+    parser.parse_args()\nquery=sys.argv[2]\n# DB details to connect to database.\ndb_url=sys.argv[4]\nschema
+    = sys.argv[6]\nclient_crt = sys.argv[8]\nclient_key = sys.argv[10]\noutput_file
+    = sys.argv[12]\n\ndef closeConnection(cursor, connection):\n    cursor.close()\n
+    \   connection.commit()\n    connection.close()\n    print(\"Cockroach DB connection
+    is closed\")\n\ndef execute(dbUrl,dbSchema,clientCrt,clientKey,query,output_file):\n
+    \   fetched_rows = 0\n    connection = None\n    dbHost, dbPort, dbName, dbUser,
+    dbPassword = db_url.split(\":\")\n    searchpath=\"-c search_path=%s\" % (dbSchema)\n
+    \   try:\n        # Connect to an existing database\n        connection = psycopg2.connect(user=dbUser,\n
+    \                                   password=dbPassword,\n                                    host=dbHost,\n
+    \                                   port=dbPort,\n                                    database=dbName,\n
+    \                                   sslcert=clientCrt,\n                                    sslkey=clientKey,
+    \                                     \n                                    sslmode='require',\n
+    \                                   options=searchpath)\n        connection.autocommit
+    = True\n        #print_db_connection_status(connection)\n        cursor = connection.cursor()\n
+    \       cursor.execute(query)\n\n        rows = cursor.fetchall()\n        with
+    open(output_file, 'w') as f:\n            writer = csv.writer(f, delimiter='|')\n
+    \           for row in rows:\n                writer.writerow(row)\n\n        print
+    (\" sql execution completed\")\n    except (Exception, psycopg2.Error) as error
+    :\n        print (\"Error while connecting to Cockroach DB\", error)\n        raise
+    Exception('Error executing sql')\n        exit(1)\n    finally:\n        if(connection):\n
+    \           closeConnection(cursor, connection)\n\nif __name__ == \"__main__\":\n
+    \   \n    print(\"output_file \"+output_file)\n    #print(\"db_url \"+db_url)\n
+    \   print(\"query \"+query)\n\n    try:\n        execute(db_url, schema, client_crt,
+    client_key, query, output_file)\n        clean_lines = []\n        #csv writer
+    would have introduced many extra white space characters, trimming them off such
+    that they are readable by the shell script\n        with open(output_file, \"r\")
+    as f:\n            lines = f.readlines()\n            clean_lines = [l.strip()
+    for l in lines if l.strip()]\n\n        with open(output_file, \"w\") as f:\n
+    \           f.writelines('\\n'.join(clean_lines))\n        exit(0)\n\n    except
+    Exception as err:\n        sys.stderr.write('ERROR: %sn' % str(err))\n        exit(1)"
+kind: ConfigMap
+metadata:
+  labels:
+    function: spark-hb-cleanup-scripts
+  name: spark-hb-cleanup-scripts
+  namespace: {{ .Release.Namespace }}

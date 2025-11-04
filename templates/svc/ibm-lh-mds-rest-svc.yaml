@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ibm-lh-mds-rest
+  name: {{ .Values.service.mdsRest.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: {{ .Values.service.mdsRest.port }}
+    protocol: TCP
+    targetPort: {{ .Values.service.mdsRest.port }}
+  selector:
+    app: ibm-lh-mds-rest
+
+# Made with Bob

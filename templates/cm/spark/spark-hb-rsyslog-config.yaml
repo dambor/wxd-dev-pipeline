@@ -1,0 +1,29 @@
+apiVersion: v1
+data:
+  rsyslog.conf: |
+    module(load="imfile" PollingInterval="10")
+    $DefaultNetstreamDriverCAFile /etc/internal-tls/ca.crt
+    $DefaultNetstreamDriverCertFile /etc/internal-tls/tls.crt
+    $DefaultNetstreamDriverKeyFile /etc/internal-tls/tls.key
+
+
+    input(type="imfile"
+          File="/var/log/audit/audit_events.log"
+          Tag="serviceName"
+          Facility="user")
+
+    action(type="omfwd"
+            Target="zen-audit-svc.NS_DOMAIN"
+            Port="5140"
+            Protocol="tcp"
+            StreamDriver="gtls"
+            StreamDriverMode="1"
+            StreamDriverAuthMode="x509/name"
+            StreamDriverPermittedPeers="*.NS_DOMAIN")
+kind: ConfigMap
+metadata:
+  name: spark-hb-rsyslog-config
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "5"

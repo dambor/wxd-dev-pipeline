@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ibm-lh-minio
+  name: ibm-lh-minio
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "11"
+spec:
+  progressDeadlineSeconds: 600
+  replicas: {{ .Values.deployment.replicas.minio }}
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: ibm-lh-minio
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.deployment.strategy.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.deployment.strategy.rollingUpdate.maxUnavailable }}
+    type: {{ .Values.deployment.strategy.type }}
+  template:
+    metadata:
+      labels:
+        app: ibm-lh-minio
+    spec:
+      containers:
+      - envFrom:
+        - configMapRef:
+            name: wxd-launch-cm
+        image: {{ .Values.images.registry }}/{{ .Values.images.image.minio }}:{{ .Values.images.tag.minio }}
+        imagePullPolicy: {{ .Values.images.pullPolicy }}
+        name: lh-container
+        ports:
+        - containerPort: {{ .Values.service.minio.port }}
+          protocol: TCP
+        resources: {{ .Values.deployment.resources.minio | toYaml | nindent 10 }}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: {{ .Values.volumeMounts.internalTls }}
+          name: internal-tls
+        - mountPath: {{ .Values.volumeMounts.tls }}
+          name: internal-tls-mount
+        - mountPath: {{ .Values.volumeMounts.configSecret }}
+          name: ibm-lh-config-secret-mount
+        - name: minio-storage
+          mountPath: /ibm-lh
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        runAsGroup: 0
+        runAsNonRoot: false
+        runAsUser: 0
+      serviceAccount: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: internal-tls
+        secret:
+          defaultMode: 420
+          secretName: {{ .Values.security.secrets.internalTls.name }}
+      - name: internal-tls-mount
+        projected:
+          defaultMode: 420
+          sources:
+          - secret:
+              items:
+              - key: truststore.jks
+                path: lh-ssl-ts.jks
+              - key: keystore.jks
+                path: lh-ssl-ks.jks
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+              - key: ca.crt
+                path: ca.crt
+              name: {{ .Values.security.secrets.internalTls.name }}
+      - name: ibm-lh-tls-pem-mount
+        projected:
+          defaultMode: 420
+          sources:
+          - secret:
+              items:
+              - key: cabundle.crt
+                path: tls-ca-bundle.pem
+              name: {{ .Values.security.secrets.internalTls.name }}
+      - name: ibm-lh-config-secret-mount
+        secret:
+          defaultMode: 420
+          secretName: {{ .Values.security.secrets.configSecret.name }}
+      - name: minio-storage
+        persistentVolumeClaim:
+          claimName: ibm-lh-lakehouse-minio-pvc
+
+# Made with Bob

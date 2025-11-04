@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: lhconsole-api
+  name: {{ .Values.service.consoleApi.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: {{ .Values.service.consoleApi.port }}
+    protocol: TCP
+    targetPort: {{ .Values.service.consoleApi.port }}
+  selector:
+     app: lhconsole-api
+  type: {{ .Values.service.consoleApi.type }}

@@ -1,0 +1,76 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app: analyticsengine
+    batch.kubernetes.io/job-name: {{ .Values.jobs.sparkLoadPostgresDbSpecs.name }}
+    job-name: {{ .Values.jobs.sparkLoadPostgresDbSpecs.name }}
+  name: {{ .Values.jobs.sparkLoadPostgresDbSpecs.name }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+spec:
+  backoffLimit: {{ .Values.jobs.sparkLoadPostgresDbSpecs.backoffLimit }}
+  completionMode: NonIndexed
+  completions: {{ .Values.jobs.sparkLoadPostgresDbSpecs.completions }}
+  manualSelector: false
+  parallelism: {{ .Values.jobs.sparkLoadPostgresDbSpecs.parallelism }}
+  podReplacementPolicy: TerminatingOrFailed
+  selector:
+    matchLabels:
+      job-name: {{ .Values.jobs.sparkLoadPostgresDbSpecs.name }}
+  suspend: false
+  template:
+    metadata:
+      labels:
+        job-name: {{ .Values.jobs.sparkLoadPostgresDbSpecs.name }}
+    spec:
+      {{- if not .Values.securityContext.enableOpenShiftSettings }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      {{- end }}
+      containers:
+      - {{- if not .Values.securityContext.enableOpenShiftSettings }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          runAsUser: 1000
+        {{- end }}
+        args:
+        - bash /opt/ibm/entrypoint/load-db-specs.sh /opt/ibm/entrypoint/ /opt/hb/confidential_config
+          41 cpd
+        command:
+        - /bin/bash
+        - -c
+        image: {{ .Values.jobs.sparkLoadPostgresDbSpecs.image }}
+        imagePullPolicy: {{ .Values.jobs.sparkLoadPostgresDbSpecs.imagePullPolicy }}
+        name: {{ .Values.jobs.sparkLoadPostgresDbSpecs.name }}
+        resources: {{ .Values.jobs.sparkLoadPostgresDbSpecs.resources | toYaml | nindent 10 }}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /opt/ibm/entrypoint
+          name: {{ .Values.jobs.sparkLoadPostgresDbSpecs.scriptVolume.name }}
+        - mountPath: /opt/hb/confidential_config
+          name: {{ .Values.jobs.sparkLoadPostgresDbSpecs.dbUrlVolume.name }}
+      dnsPolicy: ClusterFirst
+      restartPolicy: OnFailure
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: {{ .Values.jobs.sparkLoadPostgresDbSpecs.scriptVolume.configMapName }}
+        name: {{ .Values.jobs.sparkLoadPostgresDbSpecs.scriptVolume.name }}
+      - name: {{ .Values.jobs.sparkLoadPostgresDbSpecs.dbUrlVolume.name }}
+        secret:
+          defaultMode: 420
+          secretName: {{ .Values.jobs.sparkLoadPostgresDbSpecs.dbUrlVolume.secretName }}

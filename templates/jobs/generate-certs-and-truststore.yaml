@@ -1,0 +1,262 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: generate-certs-and-truststore
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "0"
+spec:
+  template:
+    spec:
+      {{- if .Values.securityContext.enableOpenShiftSettings }}
+      securityContext:
+        runAsNonRoot: false
+      {{- end }}
+      containers:
+      - name: cert-generator
+        image: icr.io/wxd_dev_edition/spark-hb-truststore-util:2.2.2
+        {{- if .Values.securityContext.enableOpenShiftSettings }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: false
+        {{- end }}
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          # Install required packages based on the available package manager
+
+          
+          # We'll use curl directly instead of kubectl
+          echo "Using curl for API calls..."
+          # No need to install kubectl
+
+          # Create directories in a location we have permission to write to
+          mkdir -p $HOME/certs
+          mkdir -p $HOME/truststore
+
+          # Get the truststore password from the config secret using the Kubernetes API directly
+          echo "Getting truststore and keystore passwords from config secret..."
+          NAMESPACE={{ .Release.Namespace }}
+          TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+          CACERT=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          APISERVER=https://kubernetes.default.svc
+          
+          # Set default passwords first
+          TRUSTSTORE_PASSWORD={{ .Values.security.secrets.configSecret.data.LH_TRUSTSTORE_PASSWORD }}
+          KEYSTORE_PASSWORD={{ .Values.security.secrets.configSecret.data.LH_KEYSTORE_PASSWORD }}
+          
+          # Try to get the secret data, but don't fail if it doesn't exist yet
+          echo "Attempting to retrieve passwords from config secret..."
+          SECRET_EXISTS=$(curl -s --cacert $CACERT --header "Authorization: Bearer $TOKEN" \
+            $APISERVER/api/v1/namespaces/$NAMESPACE/secrets/ibm-lh-config-secret | grep -c "\"name\": \"ibm-lh-config-secret\"" || true)
+          
+          if [ "$SECRET_EXISTS" -gt 0 ]; then
+            # Get the secret data
+            SECRET_DATA=$(curl -s --cacert $CACERT --header "Authorization: Bearer $TOKEN" \
+              $APISERVER/api/v1/namespaces/$NAMESPACE/secrets/ibm-lh-config-secret)
+            
+            # Extract and decode the passwords
+            TRUSTSTORE_PASSWORD_B64=$(echo $SECRET_DATA | grep -o '"LH_TRUSTSTORE_PASSWORD":"[^"]*"' | cut -d'"' -f4 || true)
+            KEYSTORE_PASSWORD_B64=$(echo $SECRET_DATA | grep -o '"LH_KEYSTORE_PASSWORD":"[^"]*"' | cut -d'"' -f4 || true)
+            
+            if [ ! -z "$TRUSTSTORE_PASSWORD_B64" ] && [ ! -z "$KEYSTORE_PASSWORD_B64" ]; then
+              TRUSTSTORE_PASSWORD=$(echo $TRUSTSTORE_PASSWORD_B64 | base64 -d || echo "pass:changeit")
+              KEYSTORE_PASSWORD=$(echo $KEYSTORE_PASSWORD_B64 | base64 -d || echo "changeit")
+              echo "Successfully retrieved passwords from secret."
+            else
+              echo "Failed to extract passwords from secret. Using default passwords."
+            fi
+          else
+            echo "Config secret not found. Using default passwords."
+          fi
+
+          # Generate a self-signed certificate with no expiration date
+          echo "Generating self-signed certificate..."
+          
+          # Create a configuration file for OpenSSL
+          cat > $HOME/certs/openssl.cnf << EOF
+          [req]
+          distinguished_name = dn
+          x509_extensions = v3_req
+          prompt = no
+
+          [dn]
+          CN = internal-tls
+
+          [v3_req]
+          keyUsage = keyEncipherment, dataEncipherment, digitalSignature
+          extendedKeyUsage = serverAuth, clientAuth
+          subjectAltName = @alt_names
+
+          [alt_names]
+          DNS.1 = *.{{ .Release.Namespace }}
+          DNS.2 = *.{{ .Release.Namespace }}.svc
+          DNS.3 = *.{{ .Release.Namespace }}.svc.cluster.local
+          DNS.4 = *.svc.cluster.local
+          DNS.5 = localhost
+          DNS.6 = ibm-lh-presto-svc
+          DNS.7 = *.{{ .Release.Namespace }}.pod
+          DNS.8 = *.{{ .Release.Namespace }}.pod.cluster.local
+          DNS.9 = *.pod.cluster.local
+          DNS.10 = *.ibm-lh-presto-headless-svc
+          DNS.11 = *.ibm-lh-presto-headless-svc.{{ .Release.Namespace }}
+          DNS.12 = *.ibm-lh-presto-headless-svc.{{ .Release.Namespace }}.svc
+          DNS.13 = *.ibm-lh-presto-headless-svc.{{ .Release.Namespace }}.svc.cluster.local
+          DNS.14 = *.ibm-lh-milvus-headless-svc
+          DNS.15 = *.ibm-lh-milvus-headless-svc.{{ .Release.Namespace }}
+          DNS.16 = *.ibm-lh-milvus-headless-svc.{{ .Release.Namespace }}.svc
+          DNS.17 = *.ibm-lh-milvus-headless-svc.{{ .Release.Namespace }}.svc.cluster.local
+          DNS.18 = *.cp.fyre.ibm.com
+          DNS.19 = *.fyre.ibm.com
+          DNS.20 = *.ibm-lh-ces-headless-svc
+          DNS.21 = *.ibm-lh-ces-headless-svc.{{ .Release.Namespace }}
+          DNS.22 = *.ibm-lh-ces-headless-svc.{{ .Release.Namespace }}.svc
+          DNS.23 = *.ibm-lh-ces-headless-svc.{{ .Release.Namespace }}.svc.cluster.local
+          DNS.24 = ibm-lh-presto-svc
+          DNS.25 = lhconsole-ams-svc
+          DNS.26 = api-svc
+          DNS.27 = *.api
+          DNS.28 = ibm-lh-cpg-svc
+          DNS.29 = lhconsole-api-svc
+          DNS.30 = lhconsole-nodeclient-svc
+          DNS.31 = ibm-lh-ranger-svc
+          DNS.32 = ibm-lh-javaapi-svc
+          DNS.33 = ibm-lh-prestissimo-svc
+          DNS.34 = ibm-lh-qhmm
+          DNS.35 = ibm-lh-qhmm-svc
+          DNS.36 = ibm-lh-milvus-svc
+          DNS.37 = ibm-lh-validator
+          DNS.38 = ibm-lh-validator-svc
+          DNS.39 = lhingestion-api-svc
+          DNS.40 = ibm-lh-mds-rest
+          DNS.41 = ibm-lh-mds-rest-svc
+          DNS.42 = ibm-lh-mds-thrift
+          DNS.43 = ibm-lh-mds-thrift-svc
+          DNS.44 = lhingestion-api-svc
+          # OpenShift specific DNS names
+          DNS.45 = *.apps-crc.testing
+          DNS.46 = *.apps.cluster.local
+          DNS.47 = *.{{ .Release.Namespace }}.apps.cluster.local
+          DNS.48 = *.{{ .Release.Namespace }}-{{ .Release.Namespace }}.apps.cluster.local
+          DNS.49 = *.apps.openshift.com
+          DNS.50 = *.{{ .Release.Namespace }}.apps.openshift.com
+          EOF
+
+          # Generate a private key
+          openssl genrsa -out $HOME/certs/tls.key 2048
+
+          # Generate a self-signed certificate with no expiration date (100 years)
+          echo ${KEYSTORE_PASSWORD}
+          openssl req -x509 -new -nodes -key $HOME/certs/tls.key -sha256 -days 36500 -out $HOME/certs/tls.crt -config $HOME/certs/openssl.cnf
+
+          # Create a keystore with the self-signed certificate
+          echo "Creating keystore..."
+          openssl pkcs12 -export -in $HOME/certs/tls.crt -inkey $HOME/certs/tls.key -out $HOME/certs/keystore.p12 -name ibm-lh-client -password pass:${KEYSTORE_PASSWORD}
+          
+          # Convert PKCS12 to JKS format
+          echo "${KEYSTORE_PASSWORD}"
+          keytool -importkeystore -srckeystore $HOME/certs/keystore.p12 -srcstoretype PKCS12 -srcstorepass ${KEYSTORE_PASSWORD} -destkeystore $HOME/certs/keystore.jks -deststoretype JKS -deststorepass ${KEYSTORE_PASSWORD} -noprompt
+
+          # Create a truststore and add the self-signed certificate
+          echo "Creating truststore..."
+          keytool -import -file $HOME/certs/tls.crt -alias ibm-lh-client -keystore $HOME/certs/truststore.jks -storepass ${TRUSTSTORE_PASSWORD} -noprompt
+
+          # Add system CA bundle to the truststore
+          echo "Adding system CA bundle to truststore..."
+          
+          # Function to process CA bundle
+          process_ca_bundle() {
+            local bundle_path=$1
+            echo "Processing CA bundle from $bundle_path"
+            awk 'BEGIN {c=0;} /BEGIN CERT/{c++} { print > "'$HOME'/cert." c ".pem"}' < "$bundle_path"
+            for cert in $HOME/cert.*.pem; do
+              if [ -s "$cert" ]; then
+                keytool -import -file "$cert" -alias "ca-$(basename $cert)" -keystore $HOME/certs/truststore.jks -storepass ${TRUSTSTORE_PASSWORD} -noprompt || true
+              fi
+            done
+          }
+          
+          # Check various locations for CA bundles
+          CA_BUNDLE_FOUND=false
+          
+          # RHEL/CentOS/Fedora location
+          if [ -f /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem ]; then
+            process_ca_bundle "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
+            CA_BUNDLE_FOUND=true
+          fi
+          
+          # Debian/Ubuntu location
+          if [ -f /etc/ssl/certs/ca-certificates.crt ] && [ "$CA_BUNDLE_FOUND" = "false" ]; then
+            process_ca_bundle "/etc/ssl/certs/ca-certificates.crt"
+            CA_BUNDLE_FOUND=true
+          fi
+          
+          # OpenShift specific locations
+          if [ -f /etc/pki/tls/certs/ca-bundle.crt ] && [ "$CA_BUNDLE_FOUND" = "false" ]; then
+            process_ca_bundle "/etc/pki/tls/certs/ca-bundle.crt"
+            CA_BUNDLE_FOUND=true
+          fi
+          
+          if [ -f /var/run/secrets/kubernetes.io/serviceaccount/ca.crt ] && [ "$CA_BUNDLE_FOUND" = "false" ]; then
+            process_ca_bundle "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+            CA_BUNDLE_FOUND=true
+          fi
+          
+          if [ "$CA_BUNDLE_FOUND" = "false" ]; then
+            echo "No CA bundle found in any of the standard locations. Continuing without system CA certificates."
+          fi
+
+          # Create or update the secrets using the Kubernetes API directly
+          echo "Creating/updating secrets..."
+          
+          # Get the namespace, token, and API server details from the pod's environment
+          NAMESPACE={{ .Release.Namespace }}
+          TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+          CACERT=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          APISERVER=https://kubernetes.default.svc
+          
+          # Base64 encode the certificate files
+          echo "Updating/creating secrets..."
+          TLS_CRT=$(base64 -w 0 $HOME/certs/tls.crt)
+          TLS_KEY=$(base64 -w 0 $HOME/certs/tls.key)
+          CA_CRT=$(base64 -w 0 $HOME/certs/tls.crt)
+          KEYSTORE=$(base64 -w 0 $HOME/certs/keystore.jks)
+          TRUSTSTORE=$(base64 -w 0 $HOME/certs/truststore.jks)
+
+          cat > $HOME/secret-data.json <<EOF
+          {
+            "apiVersion": "v1",
+            "kind": "Secret",
+            "metadata": { "name": "internal-tls" },
+            "type": "Opaque",
+            "data": {
+              "tls.crt": "$TLS_CRT",
+              "tls.key": "$TLS_KEY",
+              "ca.crt": "$CA_CRT",
+              "keystore.jks": "$KEYSTORE",
+              "truststore.jks": "$TRUSTSTORE",
+              "truststorebundle.jks": "$TRUSTSTORE"
+            }
+          }
+          EOF
+
+          curl -X POST --cacert $CACERT --header "Authorization: Bearer $TOKEN" \
+            --header "Content-Type: application/json" \
+            $APISERVER/api/v1/namespaces/$NAMESPACE/secrets \
+            --data @$HOME/secret-data.json || \
+          curl -X PUT --cacert $CACERT --header "Authorization: Bearer $TOKEN" \
+            --header "Content-Type: application/json" \
+            $APISERVER/api/v1/namespaces/$NAMESPACE/secrets/internal-tls \
+            --data @$HOME/secret-data.json
+
+          echo "Done."
+
+          echo "Certificate, keystore, and truststore generation completed successfully."
+      serviceAccountName: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+      restartPolicy: OnFailure
+
+# Made with Bob

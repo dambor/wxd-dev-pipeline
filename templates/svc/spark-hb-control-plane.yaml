@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    function: spark-hb-control-plane
+  name: spark-hb-control-plane
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    function: spark-hb-control-plane
+  type: ClusterIP

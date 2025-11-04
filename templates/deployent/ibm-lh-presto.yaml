@@ -1,0 +1,160 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ibm-lh-presto
+  name: ibm-lh-presto
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "11"
+spec:
+  progressDeadlineSeconds: 600
+  replicas: {{ .Values.deployment.replicas.presto }}
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: ibm-lh-presto
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.deployment.strategy.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.deployment.strategy.rollingUpdate.maxUnavailable }}
+    type: {{ .Values.deployment.strategy.type }}
+  template:
+    metadata:
+      labels:
+        app: ibm-lh-presto
+    spec:
+      {{- if not .Values.securityContext.enableOpenShiftSettings }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      {{- end }}
+      containers:
+      - {{- if not .Values.securityContext.enableOpenShiftSettings }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          runAsUser: 1000
+        {{- end }}
+        env:
+        - name: LH_KEYSTORE_PASSWORD
+          value: {{ .Values.security.secrets.configSecret.data.LH_KEYSTORE_PASSWORD }}
+        envFrom:
+        - configMapRef:
+            name: wxd-launch-cm
+        image: {{ .Values.images.registry }}/{{ .Values.images.image.presto }}:{{ .Values.images.tag.presto }}
+        imagePullPolicy: {{ .Values.images.pullPolicy }}
+        name: lh-container
+        ports:
+        - containerPort: {{ .Values.service.presto.port }}
+          protocol: TCP
+        resources: {{ .Values.deployment.resources.presto | toYaml | nindent 10 }}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: {{ .Values.volumeMounts.internalTls }}
+          name: internal-tls
+        - mountPath: {{ .Values.volumeMounts.tls }}
+          name: internal-tls-mount
+        - mountPath: {{ .Values.volumeMounts.configSecret }}
+          name: ibm-lh-config-secret-mount
+        - mountPath: /opt/presto/etc/catalog
+          name: catalog-vol
+      dnsPolicy: ClusterFirst
+      initContainers:
+      - {{- if not .Values.securityContext.enableOpenShiftSettings }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          runAsUser: 1000
+        {{- end }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Copying config files to PVC if not already present..."
+          for file in /config/*; do
+            filename=$(basename "$file")
+            dest="/writable/$filename"
+            if [ ! -f "$dest" ]; then
+              echo "Copying $filename..."
+              cp "$file" "$dest"
+            else
+              echo "$filename already exists, skipping."
+            fi
+          done
+        image: busybox
+        imagePullPolicy: Always
+        name: copy-config
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /config
+          name: catalogs-details
+        - mountPath: /writable
+          name: catalog-vol
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: catalog-vol
+        persistentVolumeClaim:
+          claimName: ibm-lh-catalog-pvc
+      - name: internal-tls
+        secret:
+          defaultMode: 420
+          secretName: {{ .Values.security.secrets.internalTls.name }}
+      - name: internal-tls-mount
+        projected:
+          defaultMode: 420
+          sources:
+          - secret:
+              items:
+              - key: truststore.jks
+                path: lh-ssl-ts.jks
+              - key: keystore.jks
+                path: lh-ssl-ks.jks
+              - key: truststore.jks
+                path: truststore.jks
+              - key: keystore.jks
+                path: keystore.jks
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+              - key: tls.crt
+                path: cert.crt
+              - key: tls.key
+                path: cert.key
+              - key: ca.crt
+                path: ca.crt
+              name: {{ .Values.security.secrets.internalTls.name }}
+      - name: ibm-lh-tls-pem-mount
+        projected:
+          defaultMode: 420
+          sources:
+          - secret:
+              items:
+              - key: cabundle.crt
+                path: tls-ca-bundle.pem
+              name: {{ .Values.security.secrets.internalTls.name }}
+      - name: ibm-lh-config-secret-mount
+        secret:
+          defaultMode: 420
+          secretName: {{ .Values.security.secrets.configSecret.name }}
+      - configMap:
+          defaultMode: 420
+          name: ibm-lh-catalogs
+        name: catalogs-details

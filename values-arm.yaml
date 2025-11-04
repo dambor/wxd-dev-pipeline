@@ -1,0 +1,21 @@
+images:
+  tag:
+    lhconsoleApi: "2.2.2-arm"
+    lhamsApi: "2.2.2-arm"
+    minio: "2.2.2-arm"
+    validator: "2.2.2-arm"
+    presto: "2.2.2-arm"
+    cpg: "2.2.2-arm"
+    ams: "2.2.2-arm"
+    miniforge: "sha256:b57eb5a81eb0f4cbb31b4e47f047152a93dd091aae3be6e28dab47f97aa24229"
+    sparkDa: ":2.2.2-arm"
+    sparkHelm: ":2.2.2-arm"
+  image:
+    miniforge: "spark-hb-cpd-miniforge-runtimes"
+platform: "arm64"
+pg-postgres:
+  image:
+    tag: "2.2.2-arm"
+pgpostgres:
+  image:
+    tag: "2.2.2-arm"

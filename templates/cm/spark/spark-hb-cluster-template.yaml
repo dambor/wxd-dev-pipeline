@@ -1,0 +1,144 @@
+apiVersion: v1
+data:
+  os-image-json: |
+    {
+      "docs": [
+        {
+          "_id": "os-image-id-jkg34-cp4d",
+          "version": "1",
+          "docker_image": "spark-hb-cpd-miniforge-runtimes",
+          "docker_base_image_id": "729821312hd332830",
+          "docker_image_tag": "sha256:7c88cf9809bdeef85dcf81d0e23b26b341c1cf5a493d1831edacb1ccc371bfa1",
+          "docker_repo": "{{ .Values.images.registry }}",
+          "docker_repo_token": "<token>",
+          "docker_file": "",
+          "docker_build_status": "BUILD_COMPLETE",
+          "docker_image_vulnerability_status": "Not_Applicable",
+          "document_type": "os_image"
+        },
+        {
+          "_id": "os-image-id-jkg34-cp4d-miniconda",
+          "version": "1",
+          "docker_image": "spark-hb-cpd-miniconda-runtimes",
+          "docker_base_image_id": "729821312hd332830",
+          "docker_image_tag": "sha256:8964cbace1851163f0e4f3f0cd76df38d873577b6653c3a170e3a0c85b5ab7c1",
+          "docker_repo": "{{ .Values.images.registry }}",
+          "docker_repo_token": "<token>",
+          "docker_file": "",
+          "docker_build_status": "BUILD_COMPLETE",
+          "docker_image_vulnerability_status": "Not_Applicable",
+          "document_type": "os_image"
+        },
+        {
+          "_id": "os-image-id-jkg34-cp4d-wxd",
+          "version": "1",
+          "docker_image": "{{ .Values.images.image.miniforge }}",
+          "docker_base_image_id": "729821312hd332830",
+          "docker_image_tag": "{{ .Values.images.tag.miniforge }}",
+          "docker_repo": "{{ .Values.images.registry }}",
+          "docker_repo_token": "<token>",
+          "docker_file": "",
+          "docker_build_status": "BUILD_COMPLETE",
+          "docker_image_vulnerability_status": "Not_Applicable",
+          "document_type": "os_image"
+        },
+        {
+          "_id": "f64e62c8509a4d4fb6a98ff58d2beh9i",
+          "version": "1",
+          "docker_image": "fluentd",
+          "docker_repo": "REPLACE_ICP4D_REGISTRY",
+          "docker_base_image_id": "729821312hd332830",
+          "docker_image_tag": "v6",
+          "docker_repo_token": "<token>",
+          "docker_file": "",
+          "docker_build_status": "BUILD_COMPLETE",
+          "docker_image_vulnerability_status": "Not_Applicable",
+          "document_type": "os_image"
+        },
+        {
+          "_id": "os-image-id-jkg35-cp4d",
+          "version": "1",
+          "docker_image": "spark-hb-cpd-miniforge-runtimes",
+          "docker_base_image_id": "729821312hd332830",
+          "docker_image_tag": "sha256:05f56b876d4af767a4364f5b3c00d5a4ffacd02bbb33de244a0a15c728123aa4",
+          "docker_repo": "{{ .Values.images.registry }}",
+          "docker_repo_token": "<token>",
+          "docker_file": "",
+          "docker_build_status": "BUILD_COMPLETE",
+          "docker_image_vulnerability_status": "Not_Applicable",
+          "document_type": "os_image"
+        },
+        {
+          "_id": "os-image-id-jkg35-cp4d-miniconda",
+          "version": "1",
+          "docker_image": "spark-hb-cpd-miniconda-runtimes",
+          "docker_base_image_id": "729821312hd332830",
+          "docker_image_tag": "sha256:a1b66b9d9834a3cbf2f048f05a6942a7895239e623c9ab4c469b7612fc7bf111",
+          "docker_repo": "{{ .Values.images.registry }}",
+          "docker_repo_token": "<token>",
+          "docker_file": "",
+          "docker_build_status": "BUILD_COMPLETE",
+          "docker_image_vulnerability_status": "Not_Applicable",
+          "document_type": "os_image"
+        },
+        {
+          "_id": "os-image-id-jkg35-cp4d-wxd",
+          "version": "1",
+          "docker_image": "{{ .Values.images.image.miniforge }}",
+          "docker_base_image_id": "729821312hd332830",
+          "docker_image_tag": "{{ .Values.images.tag.miniforge }}",
+          "docker_repo": "{{ .Values.images.registry }}",
+          "docker_repo_token": "<token>",
+          "docker_file": "",
+          "docker_build_status": "BUILD_COMPLETE",
+          "docker_image_vulnerability_status": "Not_Applicable",
+          "document_type": "os_image"
+        },
+        {
+          "_id": "os-image-id-jkg40-cp4d",
+          "version": "1",
+          "docker_image": "spark-hb-cpd-miniforge-runtimes",
+          "docker_base_image_id": "729821312hd332830",
+          "docker_image_tag": "sha256:6330a2210dff007f8ace30b05dcb1fbbd3d46fe70d93969aea9eeec6e92c663c",
+          "docker_repo": "{{ .Values.images.registry }}",
+          "docker_repo_token": "<token>",
+          "docker_file": "",
+          "docker_build_status": "BUILD_COMPLETE",
+          "docker_image_vulnerability_status": "Not_Applicable",
+          "document_type": "os_image"
+        },
+        {
+          "_id": "os-image-id-jkg40-cp4d-miniconda",
+          "version": "1",
+          "docker_image": "spark-hb-cpd-miniconda-runtimes",
+          "docker_base_image_id": "729821312hd332830",
+          "docker_image_tag": "sha256:c8759b40b2d206f436e663712cafdfedd98ffd872100e878f6d77c9f3928ac6c",
+          "docker_repo": "{{ .Values.images.registry }}",
+          "docker_repo_token": "<token>",
+          "docker_file": "",
+          "docker_build_status": "BUILD_COMPLETE",
+          "docker_image_vulnerability_status": "Not_Applicable",
+          "document_type": "os_image"
+        },
+        {
+          "_id": "os-image-id-jkg40-cp4d-wxd",
+          "version": "1",
+          "docker_image": "spark-hb-wxd-cpd-miniforge-runtimes",
+          "docker_base_image_id": "729821312hd332830",
+          "docker_image_tag": "sha256:ccdf811df4669fd8b912e2b19390dcd5b36504e953d5eb6299d76e7a3c0d8b83",
+          "docker_repo": "{{ .Values.images.registry }}",
+          "docker_repo_token": "<token>",
+          "docker_file": "",
+          "docker_build_status": "BUILD_COMPLETE",
+          "docker_image_vulnerability_status": "Not_Applicable",
+          "document_type": "os_image"
+        }
+      ]
+    }
+kind: ConfigMap
+metadata:
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "5"
+  name: spark-hb-cluster-template
+  namespace: {{ .Release.Namespace }}

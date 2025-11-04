@@ -1,0 +1,13 @@
+apiVersion: v1
+data:
+  jmx.properties: |-
+    {{ .Values.config.catalogs.jmxProperties | nindent 4 }}
+  tpcds.properties: |-
+    {{ .Values.config.catalogs.tpcdsProperties | nindent 4 }}
+kind: ConfigMap
+metadata:
+  name: {{ .Values.config.catalogs.name }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "5"

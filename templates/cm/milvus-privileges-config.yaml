@@ -1,0 +1,162 @@
+apiVersion: v1
+data:
+  milvus-privileges.json: |-
+    {
+        "SAAS": [
+            {
+                "role": "Administrator",
+                "actions": "(create)|(delete)|(view)|(pau_se)|(resume)"
+            },
+            {
+                "role": "can_administer",
+                "actions": "(delete)|(grant)|(revoke)|(pau_se)|(resume)|(scale)|(update)|(PrivilegeFlushAll)|(PrivilegeTransferNode)|(PrivilegeTransferReplica)|(PrivilegeCreateResourceGroup)|(PrivilegeDropResourceGroup)|(PrivilegeDescribeResourceGroup)|(PrivilegeListResourceGroups)"
+            },
+            {
+                "role": "can_write",
+                "actions": "(PrivilegeCreateCollection)|(PrivilegeRenameCollection)|(PrivilegeDropCollection)|(PrivilegeCreateDatabase)|(PrivilegeDropDatabase)|(PrivilegeAlterDatabase)|(PrivilegeCreateIndex)|(PrivilegeDropIndex)|(PrivilegeRelease)|(PrivilegeFlush)|(PrivilegeGetFlushState)|(PrivilegeDelete)|(PrivilegeInsert)|(PrivilegeGetStatistics)"
+            },
+            {
+                "role": "can_write",
+                "actions": "(PrivilegeCompaction)|(PrivilegeImport)|(PrivilegeLoad)|(PrivilegeLoadBalance)|(PrivilegeGetLoadingProgress)|(PrivilegeGetLoadState)|(PrivilegeCreateAlias)|(PrivilegeDropAlias)|(PrivilegeUpsert)|(PrivilegeCreatePartition)|(PrivilegeDropPartition)"
+            },
+            {
+                "role": "can_read",
+                "actions": "(view)|(PrivilegeDescribeDatabase)|(PrivilegeDescribeCollection)|(PrivilegeShowCollections)|(PrivilegeListDatabases)|(PrivilegeIndexDetail)|(PrivilegeQuery)|(PrivilegeSearch)|(PrivilegeDescribeAlias)|(PrivilegeListAliases)|(PrivilegeShowPartitions)|(PrivilegeHasPartition)"
+            },
+            {
+                "role": "can_use",
+                "actions": "(view)"
+            },
+            {
+                "role": "milvus_db_creator",
+                "actions": "(PrivilegeCreateIndex)|(PrivilegeDropIndex)|(PrivilegeCreateCollection)|(PrivilegeDescribeCollection)|(PrivilegeShowCollections)|(PrivilegeIndexDetail)|(PrivilegeSearch)|(PrivilegeQuery)|(PrivilegeLoad)|(PrivilegeLoadBalance)|(PrivilegeGetLoadingProgress)|(PrivilegeGetLoadState)|(PrivilegeRelease)|(PrivilegeDropDatabase)|(PrivilegeDescribeDatabase)|(PrivilegeAlterDatabase)"
+            },
+            {
+                "role": "milvus_db_creator",
+                "actions": "(PrivilegeRenameCollection)|(PrivilegeDropCollection)|(PrivilegeInsert)|(PrivilegeDelete)|(PrivilegeFlush)|(PrivilegeGetFlushState)|(PrivilegeGetStatistics)|(PrivilegeCompaction)|(PrivilegeImport)|(PrivilegeCreateAlias)|(PrivilegeDropAlias)|(PrivilegeDescribeAlias)|(PrivilegeListAliases)|(PrivilegeUpsert)|(PrivilegeCreatePartition)|(PrivilegeDropPartition)|(PrivilegeShowPartitions)|(PrivilegeHasPartition)"
+            },
+            {
+                "role": "milvus_collection_creator",
+                "actions": "(PrivilegeCreateIndex)|(PrivilegeDropIndex)|(PrivilegeDescribeCollection)|(PrivilegeIndexDetail)|(PrivilegeSearch)|(PrivilegeQuery)|(PrivilegeLoad)|(PrivilegeLoadBalance)|(PrivilegeGetLoadingProgress)|(PrivilegeGetLoadState)|(PrivilegeRelease)|(PrivilegeRenameCollection)|(PrivilegeDropCollection)"
+            },
+            {
+                "role": "milvus_collection_creator",
+                "actions": "(PrivilegeInsert)|(PrivilegeDelete)|(PrivilegeFlush)|(PrivilegeGetFlushState)|(PrivilegeGetStatistics)|(PrivilegeCompaction)|(PrivilegeImport)|(PrivilegeListAliases)|(PrivilegeUpsert)|(PrivilegeCreatePartition)|(PrivilegeDropPartition)|(PrivilegeShowPartitions)|(PrivilegeHasPartition)"
+            },
+            {
+                "role": "milvus_partition_creator",
+                "actions": "(PrivilegeDropPartition)|(PrivilegeHasPartition)|(PrivilegeLoad)|(PrivilegeRelease)|(PrivilegeInsert)|(PrivilegeDelete)|(PrivilegeQuery)|(PrivilegeSearch)|(PrivilegeUpsert)"
+            }
+        ],
+        "CPD": [
+            {
+                "role": "Administrator",
+                "actions": "(create)|(delete)|(view)"
+            },
+            {
+                "role": "can_administer",
+                "actions": "(delete)|(grant)|(revoke)|(pau_se)|(resume)|(scale)|(update)|(PrivilegeFlushAll)|(PrivilegeTransferNode)|(PrivilegeTransferReplica)|(PrivilegeCreateResourceGroup)|(PrivilegeDropResourceGroup)|(PrivilegeDescribeResourceGroup)|(PrivilegeListResourceGroups)"
+            },
+            {
+                "role": "can_write",
+                "actions": "(PrivilegeCreateCollection)|(PrivilegeRenameCollection)|(PrivilegeDropCollection)|(PrivilegeCreateDatabase)|(PrivilegeDropDatabase)|(PrivilegeAlterDatabase)|(PrivilegeCreateIndex)|(PrivilegeDropIndex)|(PrivilegeRelease)|(PrivilegeFlush)|(PrivilegeGetFlushState)|(PrivilegeDelete)|(PrivilegeInsert)|(PrivilegeGetStatistics)"
+            },
+            {
+                "role": "can_write",
+                "actions": "(PrivilegeCompaction)|(PrivilegeImport)|(PrivilegeLoad)|(PrivilegeLoadBalance)|(PrivilegeGetLoadingProgress)|(PrivilegeGetLoadState)|(PrivilegeCreateAlias)|(PrivilegeDropAlias)|(PrivilegeUpsert)|(PrivilegeCreatePartition)|(PrivilegeDropPartition)"
+            },
+            {
+                "role": "can_read",
+                "actions": "(view)|(PrivilegeDescribeDatabase)|(PrivilegeDescribeCollection)|(PrivilegeShowCollections)|(PrivilegeListDatabases)|(PrivilegeIndexDetail)|(PrivilegeQuery)|(PrivilegeSearch)|(PrivilegeDescribeAlias)|(PrivilegeListAliases)|(PrivilegeShowPartitions)|(PrivilegeHasPartition)"
+            },
+            {
+                "role": "can_use",
+                "actions": "(view)"
+            },
+            {
+                "role": "milvus_db_creator",
+                "actions": "(PrivilegeCreateIndex)|(PrivilegeDropIndex)|(PrivilegeCreateCollection)|(PrivilegeDescribeCollection)|(PrivilegeShowCollections)|(PrivilegeIndexDetail)|(PrivilegeSearch)|(PrivilegeQuery)|(PrivilegeLoad)|(PrivilegeLoadBalance)|(PrivilegeGetLoadingProgress)|(PrivilegeGetLoadState)|(PrivilegeRelease)|(PrivilegeDropDatabase)|(PrivilegeDescribeDatabase)|(PrivilegeAlterDatabase)"
+            },
+            {
+                "role": "milvus_db_creator",
+                "actions": "(PrivilegeRenameCollection)|(PrivilegeDropCollection)|(PrivilegeInsert)|(PrivilegeDelete)|(PrivilegeFlush)|(PrivilegeGetFlushState)|(PrivilegeGetStatistics)|(PrivilegeCompaction)|(PrivilegeImport)|(PrivilegeCreateAlias)|(PrivilegeDropAlias)|(PrivilegeDescribeAlias)|(PrivilegeListAliases)|(PrivilegeUpsert)|(PrivilegeCreatePartition)|(PrivilegeDropPartition)|(PrivilegeShowPartitions)|(PrivilegeHasPartition)"
+            },
+            {
+                "role": "milvus_collection_creator",
+                "actions": "(PrivilegeCreateIndex)|(PrivilegeDropIndex)|(PrivilegeDescribeCollection)|(PrivilegeIndexDetail)|(PrivilegeSearch)|(PrivilegeQuery)|(PrivilegeLoad)|(PrivilegeLoadBalance)|(PrivilegeGetLoadingProgress)|(PrivilegeGetLoadState)|(PrivilegeRelease)|(PrivilegeRenameCollection)|(PrivilegeDropCollection)"
+            },
+            {
+                "role": "milvus_collection_creator",
+                "actions": "(PrivilegeInsert)|(PrivilegeDelete)|(PrivilegeFlush)|(PrivilegeGetFlushState)|(PrivilegeGetStatistics)|(PrivilegeCompaction)|(PrivilegeImport)|(PrivilegeListAliases)|(PrivilegeUpsert)|(PrivilegeCreatePartition)|(PrivilegeDropPartition)|(PrivilegeShowPartitions)|(PrivilegeHasPartition)"
+            },
+            {
+                "role": "milvus_partition_creator",
+                "actions": "(PrivilegeDropPartition)|(PrivilegeHasPartition)|(PrivilegeLoad)|(PrivilegeRelease)|(PrivilegeInsert)|(PrivilegeDelete)|(PrivilegeQuery)|(PrivilegeSearch)|(PrivilegeUpsert)"
+            }
+        ],
+        "ClusterLevelPrivileges": [
+            "PrivilegeFlushAll",
+            "PrivilegeCreateResourceGroup",
+            "PrivilegeDropResourceGroup",
+            "PrivilegeDescribeResourceGroup",
+            "PrivilegeListResourceGroups",
+            "PrivilegeTransferNode",
+            "PrivilegeTransferReplica",
+            "PrivilegeCreateDatabase",
+            "PrivilegeListDatabases"
+        ],
+        "DatabaseLevelPrivileges": [
+            "PrivilegeDropAlias",
+            "PrivilegeDescribeAlias",
+            "PrivilegeDropDatabase",
+            "PrivilegeCreateCollection",
+            "PrivilegeShowCollections",
+            "PrivilegeDescribeDatabase",
+            "PrivilegeAlterDatabase"
+        ],
+        "CollectionLevelPrivileges": [
+            "PrivilegeCreateIndex",
+            "PrivilegeDropIndex",
+            "PrivilegeDescribeCollection",
+            "PrivilegeCreateAlias",
+            "PrivilegeListAliases",
+            "PrivilegeIndexDetail",
+            "PrivilegeRelease",
+            "PrivilegeRenameCollection",
+            "PrivilegeDropCollection",
+            "PrivilegeGetStatistics",
+            "PrivilegeCreatePartition",
+            "PrivilegeShowPartitions",
+            "PrivilegeSearch",
+            "PrivilegeQuery",
+            "PrivilegeLoad",
+            "PrivilegeGetLoadingProgress",
+            "PrivilegeGetLoadState",
+            "PrivilegeInsert",
+            "PrivilegeDelete",
+            "PrivilegeFlush",
+            "PrivilegeGetFlushState",
+            "PrivilegeUpsert",
+            "PrivilegeCompaction",
+            "PrivilegeImport",
+            "PrivilegeLoadBalance"
+        ],
+        "PartitionLevelPrivileges": [
+            "PrivilegeRelease",
+            "PrivilegeDropPartition",
+            "PrivilegeHasPartition",
+            "PrivilegeSearch",
+            "PrivilegeQuery",
+            "PrivilegeLoad",
+            "PrivilegeInsert",
+            "PrivilegeDelete",
+            "PrivilegeUpsert"
+        ]
+    }
+kind: ConfigMap
+metadata:
+  name: {{ .Values.config.milvusPrivileges.name }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "5"

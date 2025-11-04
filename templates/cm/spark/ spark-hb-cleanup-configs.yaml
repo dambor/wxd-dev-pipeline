@@ -1,0 +1,9 @@
+apiVersion: v1
+data:
+  idleshutdown.config: "{\n    \"spark\": {\n        \"idleTimeBeforeShutdown\": 30 \n    }\n}"
+kind: ConfigMap
+metadata:
+  labels:
+    function: spark-hb-cleanup-configs
+  name: spark-hb-cleanup-configs
+  namespace: {{ .Release.Namespace }}

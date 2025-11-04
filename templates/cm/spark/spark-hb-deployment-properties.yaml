@@ -1,0 +1,105 @@
+apiVersion: v1
+data:
+  deployment-properties: |-
+    productVersion=5.2.1
+    ctmServiceUrl=https://localhost:9443/ctm/v1/cluster-template
+    clusterServiceUrl=https://localhost:9443/ClusterService/v1/cluster
+    deployerServiceUrl=https://localhost:9443/deployer/v1/deploymentRequest
+    kernelServiceUrl=https://localhost:9443/ae/v1
+    volumeServiceUrl=https://localhost:9443/ctm/v1/volume
+    namespaceServiceUrl=https://localhost:9443/namespace_service/v1/namespace
+    dataplaneServiceUrl=https://localhost:9443/dataplane_manager/v1/dataplane
+    instanceServiceUrl=https://localhost:9443/instance_manager/v1/instance
+    instanceServiceV3Url=https://localhost:9443/instance_manager/v3/instances
+    instanceServiceV3InternalUrl=https://localhost:9443/instance_manager/v3_internal/instances
+    meteringServiceUrl=https://localhost:9443/metering_service/v1/metering
+    sparkServiceUrl=http://localhost:9443/ClusterService/v1/spark
+    jkgServiceUrl=http://localhost:9443/ClusterService/v1/jkg
+    jobServiceUrl=https://localhost:9443/jobService
+    helmDeployerURL=https://localhost:9443/helm-deployer/v1/releases
+    serviceProviderUrl=https://localhost:9443/v1
+    chartUrl-SparkCluster=file:///tmp/helm_charts/stable/spark-1.1.1.tgz
+    chartUrl-namespace=file:///tmp/helm_charts/stable/kernel-namespace-1.1.1.tgz
+    chartUrl-kernel=file:///tmp/helm_charts/stable/create-kernel-icp4d-1.1.1.tgz
+    chartUrl-kernel-cp4d=file:///tmp/helm_charts/stable/create-kernel-icp4d-1.1.1.tgz
+    chartUrl-jobV2-cp4d=file:///tmp/helm_charts/stable/spark-submit-job-v2-icp4d-1.1.1.tgz
+    chartUrl-jobV3-cp4d=file:///tmp/helm_charts/stable/spark-submit-job-v4-icp4d-1.1.1.tgz
+    chartUrl-jobV3-mira-cp4d=file:///tmp/helm_charts/stable/spark-submit-job-v4-mira-icp4d-1.1.1.tgz
+    chartUrl-kernelV3-cp4d=file:///tmp/helm_charts/stable/create-kernel-v3-icp4d-1.1.1.tgz
+    chartUrl-kernelV3mira-cp4d=file:///tmp/helm_charts/stable/create-kernel-v3-mira-icp4d-1.1.1.tgz
+    chartUrl-deleteKernel=file:///tmp/helm_charts/stable/delete-kernel-icp4d-1.1.1.tgz
+    chartUrl-jkg=file:///tmp/helm_charts/stable/jkg-1.1.1.tgz
+    chartUrl-HistoryServer-cp4d=file:///tmp/helm_charts/stable/spark-history-icp4d-1.0.0.tgz
+    chartUrl-job=file:///tmp/helm_charts/stable/spark-submit-job-1.1.1.tgz
+    chartUrl-jobV2=file:///tmp/helm_charts/stable/spark-submit-job-v3-icp4d-1.1.1.tgz
+    chartUrl-serviceInstanceCustomisation-cp4d=file:///tmp/helm_charts/stable/instance-ui-0.1.0.tgz
+    chartUrl-instanceResourcePlan-cp4d=file:///tmp/helm_charts/stable/spark-instance-resourceplan-1.0.0.tgz
+    chartUrl-jobV3-rdp-cp4d=file:///tmp/helm_charts/stable/spark-submit-job-v4-rdp-icp4d-1.1.1.tgz
+    chartUrl-kernelV3-rdp-cp4d=file:///tmp/helm_charts/stable/create-kernel-v3-rdp-icp4d-1.1.1.tgz
+    chartUrl-HistoryServer-rdp-cp4d=file:///tmp/helm_charts/stable/spark-history-rdp-icp4d-1.0.0.tgz
+    service_broker_type=cpd
+    zen_core_tiller_url=http://zen-core-api-svc:3333/v2/release
+    zen_v2_token=https://zen-core-api-svc:4444/internal/v2/service_token
+    RUNTIME_FLIGHT_SERVICE_URL=grpc+tls://wdp-connect-flight{{ .Release.Namespace }}svc.cluster.local:443
+    zenCoreApiServiceUrl=https://{{ .Values.service.consoleUi.name }}.{{ .Release.Namespace }}.svc.cluster.local:443/zen-data
+    volumeServiceURI=/v1/volumes
+    controlPlaneGatewayUrl=https://{{ .Values.service.consoleUi.name }}.{{ .Release.Namespace }}.svc.cluster.local:443/v2/spark/ae
+    controlPlaneHostname=https://{{ .Values.service.consoleUi.name }}.{{ .Release.Namespace }}.svc.cluster.local:443/v2/spark
+    mqKernelDeleteQueueName=kernel.delete.queue.spark
+    mqKernelDeleteRoutingKey=kernel.delete.routingkey.spark
+    mqJobCleanupQueueName=job.cleanup.queue.spark
+    mqJobCleanupRoutingKey=job.cleanup.spark
+    swiftEndPointUrl=http://swift-swift:9855/tiller/v2
+    NGINX_ROUTE=https://{{ .Values.service.consoleUi.name }}.{{ .Release.Namespace }}.svc.cluster.local:443
+    ENV_SERVICE_URL=https://{{ .Values.service.consoleUi.name }}.{{ .Release.Namespace }}.svc.cluster.local:443/v2/environments
+    ENV=DEV
+    CHECK_EVENTS_ENABLED=true
+    DeploymentMode=local
+    dockerRegistry=icr.io/wxd_dev_edition
+    sparkHistoryServerImage=spark-hb-cpd-miniforge-runtimes@sha256:05f56b876d4af767a4364f5b3c00d5a4ffacd02bbb33de244a0a15c728123aa4
+    Namespace={{ .Release.Namespace }}
+    controlplaneNamespace={{ .Release.Namespace }}
+    asyncDelete=false
+    isFipsEnabled=false
+    isSodEnabled=false
+    isSslEnabled=false
+    architecture=amd64
+    AuditEventLogFile=/var/log/audit/audit_events.log
+    CLOUD_PAK_INSTANCE_ID=f4ea1b53-4a5e-4658-93c7-8a2b9d9dbfd0
+    wdpSpacesUrl=https://{{ .Values.service.consoleUi.name }}.{{ .Release.Namespace }}.svc.cluster.local:443/v2/spaces
+    wdpJobsUrl=https://{{ .Values.service.consoleUi.name }}.{{ .Release.Namespace }}.svc.cluster.local:443/v2/jobs
+    dbTypeName=postgresql
+    isDBPoolingEnabled=false
+    isSparkAdvCPDModuleInstalled=false
+    schedulerForQuotaAndQueuing=none
+    autoDeleteRuntime=true
+    deployerType=helm-deployer
+    librarysetDistributionModel=distributed
+    librarysetMaxSizeInMB=2000
+    enableAsyncJobSubmission=false
+    RuntimeMonitoringEnabled=false
+    enableSensitiveDBColumnEncryption=false
+    applicationWaitTimeInSeconds=300
+    kernelWaitTimeInSeconds=300
+    kernelAutoDelete=true
+    runtimeContainerStorage=0
+    getSpaceStateRetryCount=32
+    serviceDeploymentMode=CPD
+    sparkUiSupported=true
+    skipSELinuxRelabeling=false
+    mountCustomizationsFromCCHome=false
+    allowedDataplaneNamespaces={{ .Release.Namespace }}
+    minIdleTimeoutToCull=300
+    maxIdleTimeoutToCull=432000
+    osImageMountPath=/opt/hb/cluster-templates/os-image.json
+    storageClassForHomeVolume=managed-nfs-storage
+    cpdHostRoute=https://{{ .Values.service.consoleUi.name }}.{{ .Release.Namespace }}.svc.cluster.local:443
+    hubRoute=https://{{ .Values.service.consoleUi.name }}.{{ .Release.Namespace }}.svc.cluster.local:443/v2/spark
+    LH_CONTEXT=sw_dev
+kind: ConfigMap
+metadata:
+  name: spark-hb-deployment-properties
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "5"

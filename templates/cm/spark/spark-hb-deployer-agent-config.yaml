@@ -1,0 +1,45 @@
+apiVersion: v1
+data:
+  config.yaml: |-
+    release:
+      namespace: {{ .Release.Namespace }}
+    app:
+      kube_config_path: "/tmp/kube_configs"
+      chart_path: "/tmp/helm_charts"
+      scheme: HTTPS
+      port: 9443
+      helm_driver: "secret"
+      cert_path: "/certs/microserviceCertificates.pem"
+      private_key_path: "/certs/microserviceKeys.pem"
+      control_plane_namespaces:
+          - {{ .Release.Namespace }}
+      timeout: 50
+      sleep_interval: 500
+      deployment_mode: "local"
+      context_timeout: 50
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -x
+
+    helm_repo_process_id=""
+    # Wait for helm repo process to start
+    while [ "$helm_repo_process_id" == "" ]
+    do
+      helm_repo_process_id=$(ps -elf | grep "helm-repo" | grep -v grep | head -n 1 | awk '{print $4}')
+      echo "Helm repo process has not yet started. Waiting for it to start."
+    done
+    echo "helm_repo_process_id: ${helm_repo_process_id}"
+    # Create softlink from deployer-agent to helm-repo's container filesystem
+    ln -s /proc/${helm_repo_process_id}/root/var/helm/stable/ /tmp/helm_charts
+    ls -al /tmp/helm_charts/stable/
+
+    kubectl proxy --address=127.0.0.1 --port=8080 --accept-hosts=.* &
+
+    /app
+kind: ConfigMap
+metadata:
+  name: spark-hb-deployer-agent-config
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "5"

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ibm-lh-mds-thrift
+  name: {{ .Values.service.mdsThrift.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: {{ .Values.service.mdsThrift.port }}
+    protocol: TCP
+    targetPort: {{ .Values.service.mdsThrift.port }}
+    name: https
+  - port: {{ .Values.service.mdsThrift.thriftport }}
+    protocol: TCP
+    targetPort: {{ .Values.service.mdsThrift.thriftport }}
+    name: thrift
+  selector:
+    app: ibm-lh-mds-thrift
+  type: {{ .Values.service.mdsThrift.type }}

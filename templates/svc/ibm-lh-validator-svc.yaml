@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ibm-lh-validator
+  name: {{ .Values.service.validatorSvc.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: {{ .Values.service.validatorSvc.port }}
+    protocol: TCP
+    targetPort: {{ .Values.service.validatorSvc.port }}
+  selector:
+    app: ibm-lh-validator
+  type: {{ .Values.service.validatorSvc.type }}
+
+# Made with Bob

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: lhconsole-ui
+  name: {{ .Values.service.consoleUi.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app: lhconsole-ui
+  type: ClusterIP

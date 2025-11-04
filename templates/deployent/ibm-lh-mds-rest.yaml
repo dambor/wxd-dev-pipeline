@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ibm-lh-mds-rest
+  name: ibm-lh-mds-rest
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "11"
+spec:
+  progressDeadlineSeconds: 600
+  replicas: {{ .Values.deployment.replicas.mdsRest }}
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: ibm-lh-mds-rest
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.deployment.strategy.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.deployment.strategy.rollingUpdate.maxUnavailable }}
+    type: {{ .Values.deployment.strategy.type }}
+  template:
+    metadata:
+      labels:
+        app: ibm-lh-mds-rest
+    spec:
+      {{- if not .Values.securityContext.enableOpenShiftSettings }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      {{- end }}
+      containers:
+      - {{- if not .Values.securityContext.enableOpenShiftSettings }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          runAsUser: 1000
+        {{- end }}
+        envFrom:
+        - configMapRef:
+            name: wxd-launch-cm
+        env:
+          - name: LH_KEYSTORE_PASSWORD
+            value: {{ .Values.security.secrets.configSecret.data.LH_KEYSTORE_PASSWORD }}
+        image: {{ .Values.images.registry }}/{{ .Values.images.image.mdsRest }}:{{ .Values.images.tag.mdsRest }}
+        imagePullPolicy: {{ .Values.images.pullPolicy }}
+        name: lh-container
+        ports:
+        - containerPort: {{ .Values.service.mdsRest.port }}
+          protocol: TCP
+        resources: {{ .Values.deployment.resources.mdsRest | toYaml | nindent 10 }}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: {{ .Values.volumeMounts.tls }}
+          name: internal-tls-mount
+        - mountPath: {{ .Values.volumeMounts.configSecret }}
+          name: ibm-lh-config-secret-mount
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: internal-tls-mount
+        projected:
+          defaultMode: 420
+          sources:
+          - secret:
+              items:
+              - key: truststore.jks
+                path: truststore.jks
+              - key: truststore.jks
+                path: truststorebundle.jks
+              - key: truststore.jks
+                path: truststorebundle.p12
+              - key: truststore.jks
+                path: lh-ssl-ts.jks
+              - key: keystore.jks
+                path: lh-ssl-ks.jks
+              - key: keystore.jks
+                path: keystore.jks
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+              - key: ca.crt
+                path: ca.crt
+              - key: ca.crt
+                path: cabundle.crt
+              name: {{ .Values.security.secrets.internalTls.name }}
+      - name: ibm-lh-config-secret-mount
+        secret:
+          defaultMode: 420
+          secretName: {{ .Values.security.secrets.configSecret.name }}
+
+# Made with Bob

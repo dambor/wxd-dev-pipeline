@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ibm-lh-presto
+  name: {{ .Values.service.presto.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: {{ .Values.service.presto.port }}
+    protocol: TCP
+    targetPort: {{ .Values.service.presto.port }}
+    name: tcp
+  - name: rest
+    protocol: TCP
+    port: {{ .Values.service.presto.restport }}
+    targetPort: {{ .Values.service.presto.restport }}
+  selector:
+    app: ibm-lh-presto
+  type: {{ .Values.service.presto.type }}

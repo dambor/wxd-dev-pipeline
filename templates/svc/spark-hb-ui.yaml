@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    function: spark-hb-ui
+  name: spark-hb-ui
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    function: spark-hb-ui
+  type: ClusterIP

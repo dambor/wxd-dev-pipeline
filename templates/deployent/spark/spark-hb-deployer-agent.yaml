@@ -1,0 +1,156 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    function: spark-hb-deployer-agent
+  name: spark-hb-deployer-agent
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "11"
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      function: spark-hb-deployer-agent
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        function: spark-hb-deployer-agent
+    spec:
+      containers:
+      - args:
+        - bash /opt/ibm/entrypoint/entrypoint.sh
+        command:
+        - /bin/bash
+        - -c
+        envFrom:
+        - configMapRef:
+            name: spark-hb-deployer-agent-env-config
+        image: {{ .Values.images.registry }}/{{ .Values.images.image.sparkDa }}{{ .Values.images.tag.sparkDa }}
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - ls
+            - /tmp/helm_charts/stable/_SUCCESS
+          failureThreshold: 120
+          periodSeconds: 120
+          successThreshold: 1
+          timeoutSeconds: 10
+        name: spark-hb-deployer-agent
+        ports:
+        - containerPort: 9443
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 15
+          httpGet:
+            path: helm-deployer/v1/ping
+            port: 9443
+            scheme: HTTPS
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 5
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+        startupProbe:
+          failureThreshold: 20
+          httpGet:
+            path: helm-deployer/v1/ping
+            port: 9443
+            scheme: HTTPS
+          periodSeconds: 20
+          successThreshold: 1
+          timeoutSeconds: 5
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /certs
+          name: internal-tls
+        - mountPath: /opt/hb/wdp-service-id
+          name: wdp-service-id-mount
+        - mountPath: /opt/ibm/entrypoint
+          name: spark-hb-deployer-agent-entrypoint
+        - mountPath: /opt/hb/config
+          name: spark-hb-deployer-agent-config
+          readOnly: true
+      - args:
+        - while true; do echo "helm-repo"; sleep 10000; done;
+        command:
+        - /bin/bash
+        - -c
+        image: {{ .Values.images.registry }}/{{ .Values.images.image.sparkHelm }}{{ .Values.images.tag.sparkHelm }}
+        imagePullPolicy: IfNotPresent
+        name: spark-hb-helm-repo
+        ports:
+        - containerPort: 9080
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - ls
+            - /var/helm/stable/
+          failureThreshold: 3
+          initialDelaySeconds: 1
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 1
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+      shareProcessNamespace: true
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: internal-tls
+        secret:
+          defaultMode: 420
+          items:
+          - key: tls.crt
+            path: microserviceCertificates.pem
+          - key: tls.key
+            path: microserviceKeys.pem
+          secretName: internal-tls
+      - name: wdp-service-id-mount
+        secret:
+          defaultMode: 420
+          secretName: wdp-service-id
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: config.yaml
+            path: config.yaml
+          name: spark-hb-deployer-agent-config
+        name: spark-hb-deployer-agent-config
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: entrypoint.sh
+            path: entrypoint.sh
+          name: spark-hb-deployer-agent-config
+        name: spark-hb-deployer-agent-entrypoint

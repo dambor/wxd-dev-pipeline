@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ibm-lh-minio
+  name: {{ .Values.service.minio.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: {{ .Values.service.minio.port }}
+    protocol: TCP
+    targetPort: {{ .Values.service.minio.port }}
+    name: api
+  - port: {{ .Values.service.minio.uiport }}
+    protocol: TCP
+    targetPort: {{ .Values.service.minio.uiport }}
+    name: ui
+  selector:
+    app: ibm-lh-minio
+  type: {{ .Values.service.minio.type }}
+
+# Made with Bob

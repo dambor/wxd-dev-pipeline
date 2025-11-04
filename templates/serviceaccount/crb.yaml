@@ -1,0 +1,31 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.serviceAccount.wxdServiceAccount.name }}-sa
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: {{ .Values.roleBinding.clusterRoleBinding.roleRef.kind }}
+  name: {{ .Values.roleBinding.clusterRoleBinding.roleRef.name }}
+subjects:
+  - kind: {{ .Values.serviceAccount.wxdServiceAccount.kind }}
+    name: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.serviceAccount.wxdNorbacSa.name }}-sa
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "1"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: {{ .Values.roleBinding.clusterRoleBinding.roleRef.kind }}
+  name: {{ .Values.roleBinding.clusterRoleBinding.roleRef.name }}
+subjects:
+  - kind: {{ .Values.serviceAccount.wxdNorbacSa.kind }}
+    name: {{ .Values.serviceAccount.wxdNorbacSa.name }}
+    namespace: {{ .Release.Namespace }}

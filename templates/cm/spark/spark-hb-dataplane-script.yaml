@@ -1,0 +1,147 @@
+apiVersion: v1
+data:
+  cache-of-templates-dataplane-details.sh: |-
+    #!/bin/bash
+
+    get_method(){
+        url=$1
+        message=$2
+        retry=$3
+        try=0
+
+
+        while [[ $try -lt $retry ]]; do
+          response=$(curl -s -k -w "%{http_code}"  $url?overwrite=true -X GET -H "Content-Type: application/json")
+
+          response_code=${response: -3}
+          if [[ "$response_code" == "200" ]]
+          then
+              echo "Successful get on $message"
+          else
+              echo "Fail to get on $message, response: $response"
+              exit 1
+          fi
+          try=$(($try + 1))
+        done
+    }
+
+    dataplane_manager_svc_url=$1
+    dataplane_name=$2
+    retry=$3
+
+    get_method $dataplane_manager_svc_url $dataplane_name $retry
+  create_kernel.py: |-
+    import sys
+    from datetime import datetime
+    import time,json,requests
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    def get_wdp_secret(wdp_secret_path):
+        try:
+            file = open(wdp_secret_path)
+            wdp_secret = file.read()
+            file.close()
+            return wdp_secret
+        except Exception as e:
+            print(f'Failed to read wdp_secret from file: {wdp_secret_path}')
+            print(e)
+            exit(1)
+
+    def create_kernel(endpoint, instance_id, api_key, payload):
+        url= endpoint + '/' + instance_id + "/jkg/api/kernels"
+        response = requests.post(url, data = payload, headers=headers, verify=False, timeout=120)
+        if response.status_code != 201:
+            print("failed to create dry run kernel")
+            print(response.text)
+            return 1
+        else:
+            kernel_details = response.json()
+            print("Successfully create kernel : {}".format(kernel_details))
+            return 0
+
+    if __name__ == "__main__":
+        if len (sys.argv) < 3:
+            print("Error : missing arguments")
+            print("Usage : python {0} <service_endpoint_url> <number_of_dry_run_kernel_to_create> <wdp_secret_path>".format(sys.argv[0]))
+            exit(1)
+        else:
+            service_endpoint_url = sys.argv[1]
+            dry_run_num = int(sys.argv[2])
+            wdp_secret_path = sys.argv[3]
+
+        payload='{}'
+        apikey=''
+        url=service_endpoint_url+'/v4/analytics_engines'
+        wdp_secret = get_wdp_secret(wdp_secret_path)
+
+        headers={'Content-Type': 'application/json', 'Authorization': f'Basic {wdp_secret}'}
+        response = requests.post(url, data = payload, headers=headers, verify=False, timeout=120)
+        if response.status_code != 201:
+            print("failed to create instance")
+            print(response.text)
+            exit(1)
+        else:
+            instance_details = response.json()
+            print("Successfully create instance : {}".format(instance_details['instance_id']))
+
+        instance_id = instance_details['instance_id']
+        api_key = instance_details['api_key']
+        payload='{"name":"python310","isDryRun":"true"}'
+        headers={'Content-Type': 'application/json','Accept': 'application/json','X-Api-Key': '{}'.format(api_key)}
+
+        failed = 0
+
+        for i in range(dry_run_num):
+            failed_flag = create_kernel(url, instance_id, api_key, payload)
+            if failed_flag:
+                failed = failed + 1
+
+        # Delete instance
+        response = requests.delete(f'{url}/{instance_id}', headers=headers, verify=False, timeout=120)
+        if response.status_code != 200:
+            print("failed to delete instance")
+        else:
+            print(f'Successfully deleted instance: {instance_id}')
+
+        if failed:
+            print("failed to create dry run kernel {} times".format(failed))
+            exit(1)
+  register-dataplane.sh: "#!/bin/bash\n\ndataplane_name=$1\ndataplane_nginx_url=$2\nmicro_service_url=$3\ndataplane_manager_endpoint=$4\ndataplane_manager_svc_url=\"$micro_service_url/$dataplane_manager_endpoint\"\n\nnfsPath=$5\nnfsServer=$6\n\nnginx_url=$7\nscript_path=$8\nnamespace=$9\nnginx_container_port=${10}\n\ncleanup_script_path=${11}\ncleanup_conf_path=${12}\n\nzen_core_tiller_endpoint=${13}\n\ninstance_manager_context_root=${14}\nkernel_context_root=${15}\njob_service_context_root=${16}\nwdp_secret_path=${17}\n\nregistered=1\n\n
+    \   exec_cmd()\n    {\n        CMD=$1\n        eval $CMD\n        if [ $? -ne
+    0 ]\n        then\n            echo \"Error : failed to execute the command:
+    $CMD\"\n        fi\n    }\n\nend=$((SECONDS+240))\nwhile [ $SECONDS -lt $end
+    ]; do\n    response=$(curl -s -k -w \"%{http_code}\"  $dataplane_manager_svc_url?overwrite=true
+    -X GET -H \"Content-Type: application/json\")\n    dataplane_response_code=${response:
+    -3}\n\n    if [[ \"$dataplane_response_code\" == \"200\" ]]\n    then\n        if
+    [[ $(echo $response | grep \"external_dataplane_URL\" | wc -l) -ge 1 ]]\n        then\n
+    \           echo \"Found registered dataplane\"\n            #update dataplane\n
+    \           dataplane_payload=\"{\\\"name\\\":\\\"$dataplane_name\\\",\\\"external_dataplane_URL\\\":\\\"$dataplane_nginx_url.$namespace.svc.cluster.local:$nginx_container_port\\\"}\"\n\n
+    \           response=$(curl -s -k -w \"%{http_code}\"  ${dataplane_manager_svc_url}/${dataplane_name}-id
+    -X PUT -H \"Content-Type: application/json\" -d \"$dataplane_payload\")\n\n
+    \           echo \"dataplane updated, response: $response\"\n            dataplane_update_response_code=${response:
+    -3}\n            if [[ \"$dataplane_update_response_code\" == \"200\" ]]\n            then\n
+    \               echo \"Successfully updated dataplane\"\n            else\n
+    \   \t\t    echo \"Error updating dataplane\"\n    \t\t    exit 1\n    \t\tfi\n
+    \           registered=0\n            break\n        fi\n    else\n        echo
+    \"Failed to get data plane details\"\n        sleep 10s\n    fi\ndone\n\nif
+    [[ $registered -eq 1 ]]\nthen\n    end=$((SECONDS+240))\n\n    while [ $SECONDS
+    -lt $end ]; do\n      dataplane_payload=\"{\\\"name\\\":\\\"$dataplane_name\\\",\\\"external_dataplane_URL\\\":\\\"$dataplane_nginx_url.$namespace.svc.cluster.local:$nginx_container_port\\\"}\"\n\n
+    \     response=$(curl -s -k -w \"%{http_code}\"  $dataplane_manager_svc_url?overwrite=true
+    -X POST -H \"Content-Type: application/json\" -d \"$dataplane_payload\")\n\n
+    \     echo \"dataplane registered, response: $response\"\n      dataplane_response_code=${response:
+    -3}\n      if [[ $(echo $response | grep \"Active\" | wc -l) -ge 1 ]]\n      then\n
+    \         echo \"Found registered dataplane\"\n          flag=0\n          break\n
+    \     else\n          echo \"Fail to register data plane, response: $response\"\n
+    \         sleep 15s\n          flag=1\n      fi\n    done\n\n    if [[ $flag
+    -eq 1 ]]\n    then\n        echo \"Failed to register data plane $dataplane_name\"\n
+    \       exit 1\n    fi\nfi\n\nno_of_calls=2\n\nbash $script_path/cache-of-templates-dataplane-details.sh
+    $dataplane_manager_svc_url $dataplane_name $no_of_calls\n\npython $script_path/create_kernel.py
+    $nginx_url $no_of_calls $wdp_secret_path\n\nif [[ $? -ne 0 ]]\nthen\n    echo
+    \"Failed to create kernel\"\n    exit 1\nfi\n\ntouch /tmp/_SUCCESS\nwhile true;
+    do sleep 1s; done"
+  template-list: spark-3.0.0-jaas-v2-cp4d-template,spark-3.0.0-rstudio-cp4d-template,spark-3.0.0-shaper-v2-cp4d-template,spark-3.0.0-wml-cp4d-template
+kind: ConfigMap
+metadata:
+  name: spark-hb-dataplane-script
+  namespace: {{ .Release.Namespace }}

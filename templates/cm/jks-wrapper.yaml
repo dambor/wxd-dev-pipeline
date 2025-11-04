@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jks-wrapper
+  namespace: {{ .Release.Namespace }}
+data:
+  entrypoint-wrapper.sh: |
+    #!/bin/sh
+    #!/bin/sh
+    set -ex
+
+    JKS_PATH=/mnt/infra/tls/truststore.jks
+
+    # Import cert
+    keytool -importcert  -trustcacerts -alias internel-cert  -file /mnt/infra/tls/tls.crt -keystore $JKS_PATH -storepass changeit -noprompt || true
+
+    # Change store password
+    keytool -storepasswd -new "$LH_TRUSTSTORE_PASSWORD" -keystore $JKS_PATH -storepass changeit
+    
+    JKS_PATH=/mnt/infra/tls/truststorebundle.p12
+
+    # Import cert
+    keytool -importcert  -trustcacerts -alias internel-cert  -file /mnt/infra/tls/tls.crt -keystore $JKS_PATH -storepass changeit -noprompt || true
+
+    # Change store password
+    keytool -storepasswd -new "$LH_TRUSTSTORE_PASSWORD" -keystore $JKS_PATH -storepass changeit
+
+    # Hand over to the real entrypoint (from image CMD/ENTRYPOINT)
+    exec "$@"
+

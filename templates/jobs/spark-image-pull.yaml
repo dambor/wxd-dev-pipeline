@@ -1,0 +1,17 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: image-pull-job
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "15"
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccount: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+      containers:
+      - name: pull-image
+        image: {{ .Values.images.registry}}/{{ .Values.images.image.miniforge }}@{{ .Values.images.tag.miniforge }}
+        command: ["echo", "Image pulled successfully"]

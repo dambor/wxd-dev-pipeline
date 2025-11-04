@@ -1,0 +1,130 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app: {{ .Values.jobs.controlPlanePrereq.name }}
+    batch.kubernetes.io/job-name: {{ .Values.jobs.controlPlanePrereq.name }}
+    job-name: {{ .Values.jobs.controlPlanePrereq.name }}
+  name: {{ .Values.jobs.controlPlanePrereq.name }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+spec:
+  backoffLimit: {{ .Values.jobs.controlPlanePrereq.backoffLimit }}
+  completionMode: NonIndexed
+  completions: {{ .Values.jobs.controlPlanePrereq.completions }}
+  manualSelector: false
+  parallelism: {{ .Values.jobs.controlPlanePrereq.parallelism }}
+  podReplacementPolicy: TerminatingOrFailed
+  selector:
+    matchLabels:
+      job-name: {{ .Values.jobs.controlPlanePrereq.name }}
+  suspend: false
+  template:
+    metadata:
+      labels:
+        job-name: {{ .Values.jobs.controlPlanePrereq.name }}
+    spec:
+      {{- if not .Values.securityContext.enableOpenShiftSettings }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      {{- end }}
+      containers:
+      - {{- if not .Values.securityContext.enableOpenShiftSettings }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          runAsUser: 1000
+        {{- end }}
+        envFrom:
+        - configMapRef:
+            name: wxd-launch-cm
+        image: {{ .Values.jobs.controlPlanePrereq.image }}/lh-control-plane-prereq:{{ .Values.jobs.controlPlanePrereq.tag }}
+        imagePullPolicy: {{ .Values.images.pullPolicy }}
+        name: lh-container
+        ports:
+        - containerPort: 8443
+          protocol: TCP
+        resources: {{ .Values.jobs.controlPlanePrereq.resources | toYaml | nindent 10 }}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: {{ .Values.volumeMounts.internalTls }}
+          name: internal-tls
+        - mountPath: {{ .Values.volumeMounts.tls }}
+          name: internal-tls-mount
+        - mountPath: {{ .Values.volumeMounts.configSecret }}
+          name: ibm-lh-config-secret-mount
+      initContainers:
+      - name: postgres-readiness-check
+        image: {{ .Values.pgpostgres.image.registry }}/{{ .Values.pgpostgres.image.repository }}:{{ .Values.pgpostgres.image.tag }}
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          echo "Checking PostgreSQL readiness..."
+          
+          # Wait for PostgreSQL to be ready
+          MAX_RETRIES=120
+          RETRY_INTERVAL=10
+          
+          echo "Waiting for PostgreSQL (ibm-lh-postgres-svc:5432) to be ready..."
+          for i in $(seq 1 $MAX_RETRIES); do
+            if PGPASSWORD="{{ .Values.global.postgresql.auth.password }}" psql -h ibm-lh-postgres-svc -p 5432 -U {{ .Values.global.postgresql.auth.username }} -d {{ .Values.global.postgresql.auth.database }} -c "SELECT 1" > /dev/null 2>&1; then
+              echo "PostgreSQL is ready!"
+              exit 0
+            else
+              echo "Attempt $i/$MAX_RETRIES: PostgreSQL not ready yet, waiting $RETRY_INTERVAL seconds..."
+              sleep $RETRY_INTERVAL
+            fi
+          done
+          
+          echo "PostgreSQL failed to become ready within the timeout period."
+          exit 1
+      dnsPolicy: ClusterFirst
+      restartPolicy: OnFailure
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.wxdServiceAccount.name }}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: internal-tls
+        secret:
+          defaultMode: 420
+          secretName: {{ .Values.security.secrets.internalTls.name }}
+      - name: internal-tls-mount
+        projected:
+          defaultMode: 420
+          sources:
+          - secret:
+              items:
+              - key: truststore.jks
+                path: lh-ssl-ts.jks
+              - key: keystore.jks
+                path: lh-ssl-ks.jks
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+              - key: ca.crt
+                path: ca.crt
+              name: {{ .Values.security.secrets.internalTls.name }}
+      - name: ibm-lh-tls-pem-mount
+        projected:
+          defaultMode: 420
+          sources:
+          - secret:
+              items:
+              - key: cabundle.crt
+                path: tls-ca-bundle.pem
+              name: {{ .Values.security.secrets.internalTls.name }}
+      - name: ibm-lh-config-secret-mount
+        secret:
+          defaultMode: 420
+          secretName: {{ .Values.security.secrets.configSecret.name }}

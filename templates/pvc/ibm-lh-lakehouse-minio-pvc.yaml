@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "ibm-lh-lakehouse-minio-pvc"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    function: "ibm-lh-lakehouse-minio-pvc"
+  annotations:
+    "helm.sh/resource-policy": keep
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: {{ .Values.pvc.storageClassName }}
