@@ -1,0 +1,24 @@
+cat << EOF > overrides.yaml 
+# Install overrides for DataStax Astra DB 
+global: 
+  # A list of namespaces where you want to run datastax operators or operands. 
+  # Typically PROJECT_CPD_INST_OPERANDS and PROJECT_CPD_INST_OPERATORS. 
+  watchNamespaces: 
+    - ${PROJECT_CPD_INST_OPERANDS} 
+    - ${PROJECT_CPD_INST_OPERATORS} 
+dex: 
+  config: 
+    enablePasswordDB: true 
+    staticPasswords: 
+      # Choose an email, username, and password for your default mission control login. 
+      - email: ${USER_EMAIL} 
+        # Use bcrypt to encode the password and set the hash here 
+        hash: ${PASSWORD_HASH} 
+        username: admin 
+        userID: "admin" 
+ui: 
+  enabled: true 
+  https: 
+    enabled: true 
+  generateOpenshiftRoute: true 
+EOF
